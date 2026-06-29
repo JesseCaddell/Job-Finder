@@ -116,6 +116,22 @@
         .miniact:hover{background:var(--line-soft);color:var(--ink)}
         .aiwhy{font-size:13px;color:var(--ink-soft);margin-top:9px;padding:9px 12px;background:var(--accent-tint);border-radius:9px;line-height:1.45}
         .aiwhy b{color:var(--accent-press);font-weight:600}
+        /* resume upload */
+        .upload-zone{border:1.5px dashed var(--line);border-radius:10px;padding:18px;text-align:center;margin-top:8px;cursor:pointer;transition:.15s}
+        .upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--accent-tint)}
+        .upload-zone input[type=file]{display:none}
+        .upload-zone .uico{font-size:22px;margin-bottom:6px}
+        .upload-zone .ulbl{font-size:13px;color:var(--ink-soft)}
+        .upload-zone .ufn{font-size:12px;color:var(--offer);font-weight:550;margin-top:4px}
+        /* AI feedback panel in detail modal */
+        .ai-panel{margin-top:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+        .ai-panel .ai-head{display:flex;align-items:center;gap:9px;padding:11px 14px;background:var(--accent-tint);border-bottom:1px solid var(--line)}
+        .ai-panel .ai-score{font-family:Fraunces;font-size:28px;font-weight:500;color:var(--ink);line-height:1}
+        .ai-panel .ai-score small{font-size:12px;font-family:Inter;color:var(--ink-faint);font-weight:450}
+        .ai-panel .ai-verdict{font-size:14px;font-weight:550;color:var(--ink)}
+        .ai-panel .ai-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+        .ai-section{font-size:13px;color:var(--ink-soft);line-height:1.5}
+        .ai-section b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--ink-faint);margin-bottom:3px}
 
         /* ---- empty ---- */
         .empty{text-align:center;padding:60px 20px;color:var(--ink-soft)}
@@ -311,8 +327,16 @@
                 </div>
                 <div class="setrow">
                     <div class="lbl">Resume on file</div>
-                    <div class="desc">Paste resume text so AI scoring can compare it to each role.</div>
-                    <textarea id="s_resume" style="width:100%;margin-top:8px;min-height:80px;border:1px solid var(--line);border-radius:9px;padding:10px;outline:none;resize:vertical" placeholder="Paste resume text…"></textarea>
+                    <div class="desc">Upload a PDF or Word doc — or paste plain text below. The AI reads this when scoring each role.</div>
+                    <div class="upload-zone" id="resumeZone">
+                        <input type="file" id="resumeFile" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                        <div class="uico">📄</div>
+                        <div class="ulbl">Drop a PDF or Word doc here, or <u>browse</u></div>
+                        <div class="ufn" id="resumeFileName"></div>
+                    </div>
+                    <div style="margin-top:8px;font-size:12px;color:var(--ink-faint);text-align:center">— or paste plain text —</div>
+                    <textarea id="s_resume" style="width:100%;margin-top:6px;min-height:70px;border:1px solid var(--line);border-radius:9px;padding:10px;outline:none;resize:vertical" placeholder="Paste resume text here as a fallback…"></textarea>
+                    <div id="resumeStatus" style="font-size:12px;color:var(--ink-faint);margin-top:5px"></div>
                 </div>
             </div>
 
@@ -382,18 +406,25 @@
     async function loadConfig() {
         try {
             const res = await fetch("/.netlify/functions/get-config");
-            if (res.ok) {
-                const remote = await res.json();
-                CONFIG = { ...CONFIG, ...remote };
+            if (!res.ok) {
+                console.warn("[config] get-config returned", res.status, "— running in local mode");
+                return;
             }
-        } catch(e) {
-            // Running locally without Netlify — stays in local mode, that's fine
-        }
-        if (CONFIG.supabase.url && CONFIG.supabase.anonKey) {
+            const remote = await res.json();
+            CONFIG = { ...CONFIG, ...remote };
+
+            if (!CONFIG.supabase.url || !CONFIG.supabase.anonKey) {
+                console.warn("[config] SUPABASE_URL or SUPABASE_ANON_KEY not set in Netlify env vars — running in local mode.");
+                return;
+            }
+
             SB = supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, {
                 auth: { persistSession: true, autoRefreshToken: true }
             });
             SHARED_MODE = true;
+            console.info("[config] Shared mode active — Supabase connected.");
+        } catch(e) {
+            console.warn("[config] Could not reach get-config — running in local mode.", e.message);
         }
     }
 
@@ -492,20 +523,22 @@
 
     function dbRowToJob(r){
         return {
-            id:      r.id,
-            added:   new Date(r.created_at).getTime(),
-            by:      r.added_by || "",
-            status:  r.status || "new",
-            fit:     r.fit,
-            why:     r.why || "",
-            history: r.history || [],
-            title:   r.title || "",
-            company: r.company || "",
-            loc:     r.loc || "",
-            src:     r.src || "",
-            url:     r.url || "",
-            tags:    r.tags || [],
-            notes:   r.notes || ""
+            id:       r.id,
+            added:    new Date(r.created_at).getTime(),
+            by:       r.added_by || "",
+            status:   r.status || "new",
+            fit:      r.fit,
+            why:      r.why || "",
+            feedback: r.feedback || null,
+            scoredAt: r.scored_at || null,
+            history:  r.history || [],
+            title:    r.title || "",
+            company:  r.company || "",
+            loc:      r.loc || "",
+            src:      r.src || "",
+            url:      r.url || "",
+            tags:     r.tags || [],
+            notes:    r.notes || ""
         };
     }
 
@@ -522,6 +555,8 @@
             status:    j.status,
             fit:       j.fit,
             why:       j.why,
+            feedback:  j.feedback || null,
+            scored_at: j.scoredAt || null,
             added_by:  j.by,
             history:   j.history || []
         };
@@ -755,7 +790,7 @@
       ${fitHtml}
     </div>
     ${(j.tags&&j.tags.length)?`<div class="tags">${j.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>`:""}
-    ${j.why?`<div class="aiwhy"><b>Fit note:</b> ${j.why}</div>`:""}
+    ${j.feedback?.summary?'<div class="aiwhy"><b>Fit note:</b> '+esc(j.feedback.summary)+'</div>':j.why?'<div class="aiwhy"><b>Fit note:</b> '+j.why+'</div>':""}
     <div class="cardfoot">
       <select class="statussel" data-status="${j.id}">
         ${STAGES.map(s=>`<option value="${s.key}" ${s.key===j.status?'selected':''}>${s.label}</option>`).join("")}
@@ -871,6 +906,40 @@
     };
 
     /* ============================================================
+       AI PANEL RENDERER
+       Builds the feedback panel HTML as a string (avoids nested
+       backtick template literals which browsers can't parse).
+       ============================================================ */
+    function renderAiPanel(j){
+        const verdict = j.feedback?.verdict ||
+            (j.fit>=75 ? "Strong match" : j.fit>=50 ? "Worth applying" : "Reach / weak match");
+        const who = SHARED_MODE ? (supaUser?.user_metadata?.name || "") : (session?.user || "");
+        const when = j.scoredAt ? new Date(j.scoredAt).toLocaleDateString() : "";
+        const byline = [who, when ? "scored "+when : ""].filter(Boolean).join(" · ");
+
+        let sections = "";
+        if(j.feedback?.strengths)
+            sections += '<div class="ai-section"><b>Strengths</b>'+esc(j.feedback.strengths)+'</div>';
+        if(j.feedback?.gaps)
+            sections += '<div class="ai-section"><b>Gaps / watch-outs</b>'+esc(j.feedback.gaps)+'</div>';
+        if(j.feedback?.recommendation)
+            sections += '<div class="ai-section"><b>Recommendation</b>'+esc(j.feedback.recommendation)+'</div>';
+        if(!j.feedback && j.why)
+            sections += '<div class="ai-section"><b>Note</b>'+esc(j.why)+'</div>';
+
+        return '<div class="ai-panel">'
+            + '<div class="ai-head">'
+            +   '<div class="ai-score">'+j.fit+'<small>/100</small></div>'
+            +   '<div>'
+            +     '<div class="ai-verdict">'+esc(verdict)+'</div>'
+            +     (byline ? '<div style="font-size:12px;color:var(--ink-faint);margin-top:2px">'+esc(byline)+'</div>' : '')
+            +   '</div>'
+            + '</div>'
+            + '<div class="ai-body">'+sections+'</div>'
+            + '</div>';
+    }
+
+    /* ============================================================
        DETAIL
        ============================================================ */
     function openDetail(id){
@@ -884,7 +953,7 @@
         $("#d_body").innerHTML=`
     <div class="meta" style="margin-bottom:14px">${esc(j.company||"—")} · ${esc(j.loc||"—")} ${j.src?"· "+esc(j.src):""}</div>
     ${j.url?`<a class="btn ghost sm" href="${esc(j.url)}" target="_blank" rel="noopener" style="text-decoration:none">Open posting ↗</a>`:""}
-    ${j.fit!=null?`<div class="aiwhy" style="margin-top:14px"><b>Fit ${j.fit}/100.</b> ${j.why||""}</div>`:""}
+    ${j.fit!=null ? renderAiPanel(j) : ""}
     ${j.notes?`<div style="margin-top:16px"><div style="font-size:12.5px;font-weight:550;color:var(--ink-soft);margin-bottom:5px">Notes</div><div style="font-size:14px;white-space:pre-wrap;line-height:1.55">${esc(j.notes)}</div></div>`:""}
     <div style="margin-top:18px">
       <div style="font-size:12.5px;font-weight:550;color:var(--ink-soft);margin-bottom:5px">History</div>
@@ -935,39 +1004,109 @@
         if(btn){ btn.textContent="Scoring…"; btn.disabled=true; }
         toast("Scoring fit…");
 
-        // Load latest profile + resume from settings
         const settings = await loadSettings();
-        const profile = settings.profile || DEFAULT_PROFILE;
-        const resume  = settings.resume  || "";
+        const profile  = settings.profile || DEFAULT_PROFILE;
+        // Prefer uploaded resume text; fall back to pasted text
+        const resume   = (settings.resume_text || settings.resume || "").slice(0, 4000);
 
         try{
             const res = await fetch(CONFIG.scoringUrl, {
                 method:"POST",
                 headers:{"Content-Type":"application/json"},
                 body: JSON.stringify({
-                    profile, resume: resume.slice(0,3000),
+                    profile,
+                    resume,
                     title:   j.title,
                     company: j.company,
                     loc:     j.loc,
-                    notes:   (j.notes||"").slice(0,2000)
+                    notes:   (j.notes||"").slice(0,3000)
                 })
             });
-            if(!res.ok) throw new Error("proxy "+res.status);
+            if(!res.ok) throw new Error("HTTP "+res.status);
             const out = await res.json();
-            j.fit = Math.max(0, Math.min(100, parseInt(out.fit)||0));
-            j.why = out.why || "";
+            j.fit      = Math.max(0, Math.min(100, parseInt(out.fit)||0));
+            j.why      = out.summary || out.why || "";   // backwards compat
+            j.feedback = out.feedback || null;
+            j.scoredAt = new Date().toISOString();
+            // Merge any suggested tags
             (out.tags||[]).forEach(t=>{
                 t=String(t).toLowerCase().trim();
                 if(t && !(j.tags||[]).map(x=>x.toLowerCase()).includes(t)){ j.tags=j.tags||[]; j.tags.push(t); }
             });
             await upsertJob(j);
             render();
-            toast("Scored "+j.fit+"/100");
+            toast("Scored "+j.fit+"/100 — open Details to see the full breakdown");
         }catch(e){
-            toast("Scoring unavailable — add the score-fit function (see README)");
+            toast("Scoring unavailable — deploy the score-fit function and set ANTHROPIC_API_KEY in Netlify");
             console.warn("Score fit failed:",e);
             if(btn){ btn.textContent="✦ Score fit"; btn.disabled=false; }
         }
+    }
+
+    /* ─── Resume file extraction ─── */
+    // Reads a PDF or DOCX client-side and stores extracted text in settings.
+    // PDF: uses pdf.js (CDN). DOCX: uses mammoth (CDN). Both loaded lazily.
+    async function extractResumeFile(file){
+        const status = $("#resumeStatus");
+        status.textContent = "Reading file…";
+        try {
+            let text = "";
+            if(file.type === "application/pdf" || file.name.endsWith(".pdf")){
+                text = await extractPdf(file);
+            } else {
+                text = await extractDocx(file);
+            }
+            if(!text.trim()) throw new Error("No text found in file");
+            // Store extracted text in settings
+            const settings = await loadSettings();
+            settings.resume_text = text;
+            settings.resume      = text;   // keep textarea in sync
+            await saveSettings({ resume: text, resume_text: text });
+            $("#s_resume").value = text.slice(0, 800) + (text.length > 800 ? "\u2026(truncated in preview)" : "");
+            $("#resumeFileName").textContent = "✓ " + file.name + " — " + Math.round(text.length/4) + " tokens extracted";
+            status.textContent = "";
+            toast("Resume uploaded and ready for scoring");
+        } catch(e) {
+            status.textContent = "Could not read file: " + e.message;
+            console.warn(e);
+        }
+    }
+
+    async function extractPdf(file){
+        if(!window.pdfjsLib){
+            await loadScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs", true);
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs";
+        }
+        const buf  = await file.arrayBuffer();
+        const pdf  = await window.pdfjsLib.getDocument({ data: buf }).promise;
+        const pages = [];
+        for(let i=1; i<=pdf.numPages; i++){
+            const page    = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            pages.push(content.items.map(it=>it.str).join(" "));
+        }
+        return pages.join("\n");
+    }
+
+    async function extractDocx(file){
+        if(!window.mammoth){
+            await loadScript("https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js");
+        }
+        const buf    = await file.arrayBuffer();
+        const result = await window.mammoth.extractRawText({ arrayBuffer: buf });
+        return result.value;
+    }
+
+    function loadScript(src, isModule=false){
+        return new Promise((res, rej)=>{
+            const s = document.createElement("script");
+            s.src = src;
+            if(isModule) s.type = "module";
+            s.onload  = ()=>setTimeout(res, 80);   // small delay for module init
+            s.onerror = ()=>rej(new Error("Failed to load "+src));
+            document.head.appendChild(s);
+        });
     }
 
     /* ============================================================
@@ -988,16 +1127,30 @@
             $("#s_reset").textContent="Sign out everywhere";
         }
         $("#settingsModal").classList.remove("hidden");
+        // Wire resume upload zone
+        const zone = $("#resumeZone");
+        const inp  = $("#resumeFile");
+        zone.onclick = ()=> inp.click();
+        inp.onchange = ()=>{ if(inp.files[0]) extractResumeFile(inp.files[0]); };
+        zone.ondragover  = e=>{ e.preventDefault(); zone.classList.add("drag"); };
+        zone.ondragleave = ()=> zone.classList.remove("drag");
+        zone.ondrop = e=>{
+            e.preventDefault(); zone.classList.remove("drag");
+            if(e.dataTransfer.files[0]) extractResumeFile(e.dataTransfer.files[0]);
+        };
     };
 
     function renderMembers(){
         if(SHARED_MODE) return;
-        $("#s_members").innerHTML=S.members.map((m,i)=>
-            `<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
-      <span class="avatar" style="background:var(--ink)">${initials(m)}</span>
-      <span style="flex:1">${esc(m)}</span>
-      ${S.members.length>1?`<button class="miniact" data-delmem="${i}" style="color:var(--denied)">remove</button>`:""}
-    </div>`).join("");
+        $("#s_members").innerHTML=S.members.map((m,i)=>{
+            const btn = S.members.length>1
+                ? '<button class="miniact" data-delmem="'+i+'" style="color:var(--denied)">remove</button>'
+                : '';
+            return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0">'
+                + '<span class="avatar" style="background:var(--ink)">'+initials(m)+'</span>'
+                + '<span style="flex:1">'+esc(m)+'</span>'
+                + btn + '</div>';
+        }).join("");
         $$("[data-delmem]").forEach(b=>b.onclick=()=>{ S.members.splice(+b.dataset.delmem,1); store.set("pipeline_state",S); renderMembers(); });
     }
 
