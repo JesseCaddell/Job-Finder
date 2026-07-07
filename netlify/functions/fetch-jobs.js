@@ -27,7 +27,7 @@ async function greenhouse(token){
         const d = await r.json();
         return (d.jobs||[]).map(j=>({
             title:j.title, company:token, location:(j.location&&j.location.name)||"",
-            url:j.absolute_url, source:"Greenhouse",
+            url:j.absolute_url, source:"Greenhouse", postedAt:j.updated_at||null,
             description:(j.content||"").replace(/<[^>]+>/g," ").slice(0,600)
         }));
     }catch(e){ return []; }
@@ -39,6 +39,7 @@ async function lever(slug){
         return (Array.isArray(d)?d:[]).map(j=>({
             title:j.text, company:slug, location:(j.categories&&j.categories.location)||"",
             url:j.hostedUrl, source:"Lever",
+            postedAt:j.createdAt?new Date(j.createdAt).toISOString():null,
             description:(j.descriptionPlain||"").slice(0,600)
         }));
     }catch(e){ return []; }
@@ -55,6 +56,7 @@ async function usajobs(){
         return items.map(it=>{ const f=it.MatchedObjectDescriptor; return {
             title:f.PositionTitle, company:f.OrganizationName,
             location:(f.PositionLocationDisplay||""), url:f.PositionURI, source:"USAJOBS",
+            postedAt:f.PublicationStartDate||null,
             description:(f.UserArea&&f.UserArea.Details&&f.UserArea.Details.JobSummary||"").slice(0,600) };});
     }catch(e){ return []; }
 }
@@ -67,7 +69,8 @@ async function adzuna(){
         const d=await r.json();
         return (d.results||[]).map(j=>({
             title:j.title, company:(j.company&&j.company.display_name)||"", location:(j.location&&j.location.display_name)||"",
-            url:j.redirect_url, source:"Adzuna", description:(j.description||"").slice(0,600) }));
+            url:j.redirect_url, source:"Adzuna", postedAt:j.created||null,
+            description:(j.description||"").slice(0,600) }));
     }catch(e){ return []; }
 }
 

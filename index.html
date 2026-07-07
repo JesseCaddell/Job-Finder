@@ -70,7 +70,7 @@
             border:1px solid var(--line);border-radius:10px;padding:0 12px;height:42px;
         }
         .search:focus-within{border-color:var(--ink-faint)}
-        .search input{flex:1;border:none;outline:none;background:none;height:100%}
+        .search input{flex:1;min-width:0;border:none;outline:none;background:none;height:100%}
         .search svg{flex:none}
         select.sort{height:42px;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:0 12px;outline:none;color:var(--ink-soft)}
         .btn{
@@ -252,11 +252,11 @@
 
     <div class="wrap">
         <div class="rail" id="rail"></div>
-        <div class="railhint">Tap a stage to filter · showing <span id="showingCount">0</span> roles</div>
+        <div class="railhint">Tap a stage to filter · showing <span id="showingCount">0</span> roles · <button class="linkbtn" id="archivedToggle" style="font-size:12px"></button></div>
         <div class="toolbar">
             <div class="search">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A91A0" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                <input id="q" placeholder="Search title, company, location, notes…" />
+                <input id="q" placeholder="company, location, etc" />
             </div>
             <select class="sort" id="sort">
                 <option value="added">Newest added</option>
@@ -264,6 +264,9 @@
                 <option value="company">Company A–Z</option>
                 <option value="title">Title A–Z</option>
             </select>
+            <button class="btn ghost" id="pullFeedBtn">⟳ Pull feed now</button>
+            <button class="btn ghost" id="scoreAllBtn">✦ Score all</button>
+            <button class="btn ghost" id="removeLowBtn">Remove low scores</button>
             <button class="btn" id="addBtn">+ Add a job</button>
         </div>
         <div class="tagrow" id="tagrow"></div>
@@ -334,9 +337,20 @@
                         <div class="ulbl">Drop a PDF or Word doc here, or <u>browse</u></div>
                         <div class="ufn" id="resumeFileName"></div>
                     </div>
-                    <div style="margin-top:8px;font-size:12px;color:var(--ink-faint);text-align:center">— or paste plain text —</div>
-                    <textarea id="s_resume" style="width:100%;margin-top:6px;min-height:70px;border:1px solid var(--line);border-radius:9px;padding:10px;outline:none;resize:vertical" placeholder="Paste resume text here as a fallback…"></textarea>
+                    <div id="resumeViewRow" class="hidden" style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                        <button class="btn ghost sm" id="resumeViewBtn" type="button">📄 View current resume</button>
+                        <span id="resumeViewName" style="font-size:12px;color:var(--ink-faint)"></span>
+                    </div>
+                    <div id="resumeTextFallback">
+                        <div style="margin-top:8px;font-size:12px;color:var(--ink-faint);text-align:center">— or paste plain text —</div>
+                        <textarea id="s_resume" style="width:100%;margin-top:6px;min-height:70px;border:1px solid var(--line);border-radius:9px;padding:10px;outline:none;resize:vertical" placeholder="Paste resume text here as a fallback…"></textarea>
+                    </div>
                     <div id="resumeStatus" style="font-size:12px;color:var(--ink-faint);margin-top:5px"></div>
+                </div>
+                <div class="setrow">
+                    <div class="lbl">Low score threshold</div>
+                    <div class="desc">Scored jobs below this are eligible to be removed from the main feed.</div>
+                    <input id="s_lowscore" type="number" min="0" max="100" style="width:100px;margin-top:8px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;outline:none" />
                 </div>
             </div>
 
@@ -359,12 +373,6 @@
             </div>
 
             <div class="setgroup">
-                <div class="setrow">
-                    <div class="lbl">Auto-feed endpoint <span style="font-weight:400;color:var(--ink-faint)">(optional)</span></div>
-                    <div class="desc">Your Netlify function URL. Leave blank to add jobs manually only.</div>
-                    <input id="s_feed" placeholder="https://your-site.netlify.app/.netlify/functions/fetch-jobs" style="width:100%;margin-top:8px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;outline:none" />
-                    <button class="btn ghost sm" id="s_pullfeed" style="margin-top:8px">Pull feed now</button>
-                </div>
                 <div class="setrow">
                     <div class="lbl">Danger zone</div>
                     <div class="desc" id="s_danger_desc">Wipe all local data on this device.</div>
@@ -397,7 +405,7 @@
 
     /* CONFIG is loaded from /.netlify/functions/get-config at boot.
        Nothing sensitive lives in this file — keys stay in Netlify env vars. */
-    let CONFIG = { supabase: { url: "", anonKey: "" }, scoringUrl: "/.netlify/functions/score-fit" };
+    let CONFIG = { supabase: { url: "", anonKey: "" }, scoringUrl: "/.netlify/functions/score-fit", improveUrl: "/.netlify/functions/improve-resume" };
 
     /* ─── Supabase client — set after config loads ─── */
     let SB          = null;
@@ -448,6 +456,8 @@
 
     /* ─── Default local state ─── */
     const DEFAULT_PROFILE = "Targeting Project Manager, Technical Project Manager, Product Owner, and Analyst roles in the Seattle / South Puget Sound area (open to remote). Mid-level. Strengths: stakeholder coordination, roadmaps, cross-functional delivery, data analysis.";
+    const DEFAULT_LOW_SCORE_THRESHOLD = 50;
+    let lowScoreThreshold = DEFAULT_LOW_SCORE_THRESHOLD;
 
     function freshLocalState(){
         return {
@@ -455,7 +465,6 @@
             code: "",
             profile: DEFAULT_PROFILE,
             resume: "",
-            feedUrl: "",
             jobs: seedJobs()
         };
     }
@@ -531,6 +540,11 @@
             why:      r.why || "",
             feedback: r.feedback || null,
             scoredAt: r.scored_at || null,
+            resumeId:       r.resume_id || null,
+            resumeFilename: r.resume_filename || null,
+            improvements:   r.improvements || null,
+            archived:  !!r.archived,
+            postedAt:  r.posted_at || null,
             history:  r.history || [],
             title:    r.title || "",
             company:  r.company || "",
@@ -557,6 +571,11 @@
             why:       j.why,
             feedback:  j.feedback || null,
             scored_at: j.scoredAt || null,
+            resume_id:       j.resumeId || null,
+            resume_filename: j.resumeFilename || null,
+            improvements:    j.improvements || null,
+            archived:  !!j.archived,
+            posted_at: j.postedAt || null,
             added_by:  j.by,
             history:   j.history || []
         };
@@ -716,6 +735,8 @@
 
         // Load data
         await loadJobs();
+        const settings = await loadSettings();
+        lowScoreThreshold = settings.low_score_threshold ?? DEFAULT_LOW_SCORE_THRESHOLD;
 
         // Wire real-time updates
         subscribeRealtime();
@@ -728,10 +749,10 @@
     /* ============================================================
        RENDER
        ============================================================ */
-    let filter = { stage:null, tag:null, q:"", sort:"added" };
+    let filter = { stage:null, tag:null, q:"", sort:"added", archived:false };
 
     function visibleJobs(){
-        let list = jobs.slice();
+        let list = jobs.filter(j=>!!j.archived === filter.archived);
         if(filter.stage) list = list.filter(j=>j.status===filter.stage);
         if(filter.tag)   list = list.filter(j=>(j.tags||[]).map(t=>t.toLowerCase()).includes(filter.tag));
         if(filter.q){
@@ -797,6 +818,9 @@
       </select>
       ${j.status==="interview"?`<button class="miniact" data-cal="${j.id}">＋ Calendar</button>`:""}
       <button class="miniact" data-open="${j.id}">Details</button>
+      ${j.archived
+            ? `<button class="miniact" data-restore="${j.id}">Restore</button>`
+            : (j.fit!=null && j.fit<lowScoreThreshold ? `<button class="miniact" data-archive="${j.id}" style="color:var(--denied)">Remove</button>` : "")}
       <span class="byline">${esc(j.by||"")} · ${timeAgo(j.added)}</span>
     </div>
   </div>`;
@@ -806,17 +830,26 @@
         renderRail(); renderTagrow();
         const list = visibleJobs();
         $("#showingCount").textContent = list.length;
+        const archivedN = jobs.filter(j=>j.archived).length;
+        $("#archivedToggle").textContent = filter.archived ? "Back to board" : `Archived (${archivedN})`;
         $("#sort").value = filter.sort;
         const c = $("#cards");
         if(!list.length){
             c.innerHTML = `<div class="empty"><span class="serif">Nothing here yet.</span>
-      ${jobs.length ? "No roles match this filter." : "Paste a job link to get started — or wire up the auto-feed in Settings."}
-      <div style="margin-top:16px"><button class="btn" id="emptyAdd">+ Add your first job</button></div></div>`;
+      ${filter.archived ? "No archived jobs." : (jobs.length ? "No roles match this filter." : "Paste a job link to get started — or wire up the auto-feed in Settings.")}
+      ${filter.archived ? "" : '<div style="margin-top:16px"><button class="btn" id="emptyAdd">+ Add your first job</button></div>'}</div>`;
             const ea=$("#emptyAdd"); if(ea) ea.onclick=openAdd;
         } else {
             c.innerHTML = list.map(jobCard).join("");
         }
         bindCards();
+    }
+
+    async function setArchived(id, archived){
+        const j = jobs.find(x=>x.id===id); if(!j) return;
+        j.archived = archived;
+        await upsertJob(j);
+        render();
     }
 
     function bindCards(){
@@ -832,11 +865,14 @@
         $$("[data-score]").forEach(b=>b.onclick=()=>scoreFit(b.dataset.score));
         $$("[data-open]").forEach(b=>b.onclick=()=>openDetail(b.dataset.open));
         $$("[data-cal]").forEach(b=>b.onclick=()=>addToCalendar(b.dataset.cal));
+        $$("[data-archive]").forEach(b=>b.onclick=()=>setArchived(b.dataset.archive, true));
+        $$("[data-restore]").forEach(b=>b.onclick=()=>setArchived(b.dataset.restore, false));
     }
 
     $("#q").oninput      = e=>{ filter.q=e.target.value; render(); };
     $("#sort").onchange  = e=>{ filter.sort=e.target.value; render(); };
     $("#addBtn").onclick = openAdd;
+    $("#archivedToggle").onclick = ()=>{ filter.archived=!filter.archived; filter.stage=null; render(); };
 
     /* ============================================================
        ADD / EDIT
@@ -926,6 +962,17 @@
             sections += '<div class="ai-section"><b>Recommendation</b>'+esc(j.feedback.recommendation)+'</div>';
         if(!j.feedback && j.why)
             sections += '<div class="ai-section"><b>Note</b>'+esc(j.why)+'</div>';
+        if(j.resumeFilename)
+            sections += '<div class="ai-section"><b>Scored against</b>'+esc(j.resumeFilename)+'</div>';
+
+        if(j.improvements?.text){
+            sections += '<div class="ai-section"><b>Draft improvements</b>'
+                + '<div style="white-space:pre-wrap">'+esc(j.improvements.text)+'</div>'
+                + '<button class="miniact" id="d_copyimprovements" style="margin-top:6px">Copy to clipboard</button>'
+                + '</div>';
+        } else if(j.fit>=60){
+            sections += '<div class="ai-section"><button class="btn ghost sm" id="d_draftimprovements">✦ Draft improvements</button></div>';
+        }
 
         return '<div class="ai-panel">'
             + '<div class="ai-head">'
@@ -945,11 +992,20 @@
     function openDetail(id){
         const j=jobs.find(x=>x.id===id); if(!j) return;
         $("#d_title").textContent = j.title||"Role";
-        const hist = (j.history||[]).slice().reverse().map(h=>`
+        const hist = (j.history||[]).slice().reverse().map(h=>{
+            if(h.type==="score"){
+                return `
+    <div style="display:flex;gap:9px;font-size:13px;color:var(--ink-soft);padding:5px 0">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--ink-faint);margin-top:6px;flex:none"></span>
+      <span><b style="color:var(--ink);font-weight:550">Scored ${h.fit}/100</b>${h.resumeFilename?" against "+esc(h.resumeFilename):""} — ${h.by||"?"} · ${new Date(h.t).toLocaleDateString()}</span>
+    </div>`;
+            }
+            return `
     <div style="display:flex;gap:9px;font-size:13px;color:var(--ink-soft);padding:5px 0">
       <span style="width:8px;height:8px;border-radius:50%;background:${stageMeta(h.s).color};margin-top:6px;flex:none"></span>
       <span><b style="color:var(--ink);font-weight:550">${stageMeta(h.s).label}</b> — ${h.by||"?"} · ${new Date(h.t).toLocaleDateString()}</span>
-    </div>`).join("");
+    </div>`;
+        }).join("");
         $("#d_body").innerHTML=`
     <div class="meta" style="margin-bottom:14px">${esc(j.company||"—")} · ${esc(j.loc||"—")} ${j.src?"· "+esc(j.src):""}</div>
     ${j.url?`<a class="btn ghost sm" href="${esc(j.url)}" target="_blank" rel="noopener" style="text-decoration:none">Open posting ↗</a>`:""}
@@ -959,8 +1015,10 @@
       <div style="font-size:12.5px;font-weight:550;color:var(--ink-soft);margin-bottom:5px">History</div>
       ${hist||'<div style="font-size:13px;color:var(--ink-faint)">No history yet.</div>'}
     </div>
+    <input type="file" id="d_resumeFile" class="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
     <div class="mfoot" style="margin-top:20px">
       <button class="btn ghost sm" id="d_score">✦ Re-score fit</button>
+      ${j.fit!=null?`<button class="btn ghost sm" id="d_scorenew">✦ Score additional resume</button>`:""}
       <button class="btn ghost sm" id="d_edit">Edit</button>
       <button class="btn ghost sm" id="d_del" style="color:var(--denied)">Delete</button>
     </div>`;
@@ -968,6 +1026,20 @@
         $("#d_edit").onclick=()=>{ closeModals(); openEdit(j); };
         $("#d_del").onclick=async ()=>{
             if(confirm("Delete this role from the board?")){ await deleteJob(id); closeModals(); toast("Deleted"); }
+        };
+        const scoreNewBtn = $("#d_scorenew");
+        if(scoreNewBtn){
+            scoreNewBtn.onclick = ()=> $("#d_resumeFile").click();
+            $("#d_resumeFile").onchange = e=>{
+                if(e.target.files[0]) scoreAdditionalResume(id, e.target.files[0]);
+            };
+        }
+        const draftBtn = $("#d_draftimprovements");
+        if(draftBtn) draftBtn.onclick = ()=>draftImprovements(id);
+        const copyBtn = $("#d_copyimprovements");
+        if(copyBtn) copyBtn.onclick = ()=>{
+            navigator.clipboard.writeText(j.improvements.text);
+            toast("Copied to clipboard");
         };
         $("#detailModal").classList.remove("hidden");
     }
@@ -998,7 +1070,7 @@
        Manual-only — never fires without you clicking the button.
        Uses claude-haiku-4-5 (cheapest model) server-side.
        ============================================================ */
-    async function scoreFit(id){
+    async function scoreFit(id, override){
         const j=jobs.find(x=>x.id===id); if(!j) return;
         const btn = $(`[data-score="${id}"]`);
         if(btn){ btn.textContent="Scoring…"; btn.disabled=true; }
@@ -1006,8 +1078,14 @@
 
         const settings = await loadSettings();
         const profile  = settings.profile || DEFAULT_PROFILE;
-        // Prefer uploaded resume text; fall back to pasted text
-        const resume   = (settings.resume_text || settings.resume || "").slice(0, 4000);
+        const currentVersion = SHARED_MODE ? currentResumeVersion(settings) : null;
+        // Prefer an explicit override resume (e.g. "score additional resume"),
+        // then the uploaded/versioned resume, then the pasted fallback.
+        const resumeText     = override?.text || settings.resume_text || settings.resume || "";
+        const resume         = resumeText.slice(0, 4000);
+        const resumeId       = override?.id       ?? currentVersion?.id       ?? null;
+        const resumeFilename = override?.filename ?? currentVersion?.filename ?? null;
+        const who = SHARED_MODE ? (supaUser.user_metadata?.name||supaUser.email.split("@")[0]) : session.user;
 
         try{
             const res = await fetch(CONFIG.scoringUrl, {
@@ -1024,10 +1102,25 @@
             });
             if(!res.ok) throw new Error("HTTP "+res.status);
             const out = await res.json();
-            j.fit      = Math.max(0, Math.min(100, parseInt(out.fit)||0));
-            j.why      = out.summary || out.why || "";   // backwards compat
-            j.feedback = out.feedback || null;
-            j.scoredAt = new Date().toISOString();
+
+            // Keep the prior score attached to whichever resume produced it,
+            // instead of silently overwriting it.
+            if(j.fit!=null){
+                j.history = j.history||[];
+                j.history.push({
+                    type: "score", t: Date.now(), by: who,
+                    fit: j.fit, why: j.why, feedback: j.feedback,
+                    resumeId: j.resumeId, resumeFilename: j.resumeFilename, scoredAt: j.scoredAt
+                });
+            }
+
+            j.fit            = Math.max(0, Math.min(100, parseInt(out.fit)||0));
+            j.why            = out.summary || out.why || "";   // backwards compat
+            j.feedback       = out.feedback || null;
+            j.scoredAt       = new Date().toISOString();
+            j.resumeId       = resumeId;
+            j.resumeFilename = resumeFilename;
+            j.improvements   = null;   // stale relative to the new score
             // Merge any suggested tags
             (out.tags||[]).forEach(t=>{
                 t=String(t).toLowerCase().trim();
@@ -1043,6 +1136,57 @@
         }
     }
 
+    /* ─── Draft improvements (AI resume suggestions for fit>=60) ─── */
+    async function draftImprovements(id){
+        const j=jobs.find(x=>x.id===id); if(!j) return;
+        toast("Drafting improvements…");
+        const settings = await loadSettings();
+        const profile  = settings.profile || DEFAULT_PROFILE;
+        const resume   = (settings.resume_text || settings.resume || "").slice(0, 4000);
+        try{
+            const res = await fetch(CONFIG.improveUrl, {
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({
+                    profile, resume,
+                    title: j.title, company: j.company, loc: j.loc,
+                    notes: (j.notes||"").slice(0,3000),
+                    gaps:  j.feedback?.gaps || ""
+                })
+            });
+            if(!res.ok) throw new Error("HTTP "+res.status);
+            const out = await res.json();
+            j.improvements = { text: out.improvements || "", generatedAt: new Date().toISOString() };
+            await upsertJob(j);
+            openDetail(id);
+            toast("Improvements drafted");
+        }catch(e){
+            toast("Couldn't draft improvements — check the improve-resume function is deployed");
+            console.warn("Draft improvements failed:",e);
+        }
+    }
+
+    /* ─── Score additional resume: upload a new version, rescore this job ─── */
+    async function scoreAdditionalResume(id, file){
+        if(!SHARED_MODE){ toast("Uploading a new resume version needs shared/Supabase mode"); return; }
+        toast("Reading new resume…");
+        try{
+            const text = (file.type === "application/pdf" || file.name.endsWith(".pdf"))
+                ? await extractPdf(file) : await extractDocx(file);
+            if(!text.trim()) throw new Error("No text found in file");
+
+            const version  = await uploadResumeVersion(file, text);
+            const settings = await loadSettings();
+            const versions = (settings.resume_versions || []).concat(version);
+            await saveSettings({ resume: text, resume_text: text, resume_versions: versions });
+
+            await scoreFit(id, { id: version.id, filename: version.filename, text });
+        }catch(e){
+            toast("Couldn't score with the new resume: " + e.message);
+            console.warn(e);
+        }
+    }
+
     /* ─── Resume file extraction ─── */
     // Reads a PDF or DOCX client-side and stores extracted text in settings.
     // PDF: uses pdf.js (CDN). DOCX: uses mammoth (CDN). Both loaded lazily.
@@ -1050,25 +1194,75 @@
         const status = $("#resumeStatus");
         status.textContent = "Reading file…";
         try {
-            let text = "";
+            let text;
             if(file.type === "application/pdf" || file.name.endsWith(".pdf")){
                 text = await extractPdf(file);
             } else {
                 text = await extractDocx(file);
             }
             if(!text.trim()) throw new Error("No text found in file");
-            // Store extracted text in settings
             const settings = await loadSettings();
+            const patch = { resume: text, resume_text: text };
+
+            if(SHARED_MODE){
+                status.textContent = "Uploading file…";
+                const version = await uploadResumeVersion(file, text);
+                const versions = (settings.resume_versions || []).concat(version);
+                patch.resume_versions = versions;
+                settings.resume_versions = versions;
+            }
+
             settings.resume_text = text;
-            settings.resume      = text;   // keep textarea in sync
-            await saveSettings({ resume: text, resume_text: text });
+            settings.resume      = text;
+            await saveSettings(patch);
             $("#s_resume").value = text.slice(0, 800) + (text.length > 800 ? "\u2026(truncated in preview)" : "");
             $("#resumeFileName").textContent = "✓ " + file.name + " — " + Math.round(text.length/4) + " tokens extracted";
             status.textContent = "";
+            refreshResumeViewer(settings);
             toast("Resume uploaded and ready for scoring");
         } catch(e) {
             status.textContent = "Could not read file: " + e.message;
             console.warn(e);
+        }
+    }
+
+    /* ─── Resume file storage (shared mode only) ───
+       Local mode has no backend to store the raw file in, so it keeps
+       today's extracted-text-only behavior. */
+    async function uploadResumeVersion(file, text){
+        const path = `${supaUser.id}/${Date.now()}-${file.name}`;
+        const { error } = await SB.storage.from("resumes").upload(path, file, { upsert: true });
+        if(error) throw new Error("Storage upload failed: " + error.message);
+        return { id: newId(), filename: file.name, path, text, uploadedAt: new Date().toISOString() };
+    }
+
+    function currentResumeVersion(settings){
+        const versions = settings?.resume_versions || [];
+        return versions.length ? versions[versions.length - 1] : null;
+    }
+
+    async function viewResumeFile(path){
+        const { data, error } = await SB.storage.from("resumes").createSignedUrl(path, 3600);
+        if(error){ toast("Couldn't open resume file"); console.warn(error); return; }
+        window.open(data.signedUrl, "_blank");
+    }
+
+    function refreshResumeViewer(settings){
+        const row = $("#resumeViewRow");
+        const fallback = $("#resumeTextFallback");
+        if(!SHARED_MODE){
+            row.classList.add("hidden");
+            fallback.classList.remove("hidden");
+            return;
+        }
+        const current = currentResumeVersion(settings);
+        fallback.classList.add("hidden");
+        if(current){
+            row.classList.remove("hidden");
+            $("#resumeViewName").textContent = current.filename;
+            $("#resumeViewBtn").onclick = ()=>viewResumeFile(current.path);
+        } else {
+            row.classList.add("hidden");
         }
     }
 
@@ -1116,7 +1310,7 @@
         const settings = await loadSettings();
         $("#s_profile").value = settings.profile || DEFAULT_PROFILE;
         $("#s_resume").value  = settings.resume  || "";
-        $("#s_feed").value    = settings.feed_url || settings.feedUrl || "";
+        $("#s_lowscore").value = settings.low_score_threshold ?? DEFAULT_LOW_SCORE_THRESHOLD;
         if(!SHARED_MODE){
             $("#s_localGroup").classList.remove("hidden");
             $("#s_code").value="";
@@ -1127,6 +1321,7 @@
             $("#s_reset").textContent="Sign out everywhere";
         }
         $("#settingsModal").classList.remove("hidden");
+        refreshResumeViewer(settings);
         // Wire resume upload zone
         const zone = $("#resumeZone");
         const inp  = $("#resumeFile");
@@ -1165,10 +1360,10 @@
         const patch = {
             profile:  $("#s_profile").value.trim(),
             resume:   $("#s_resume").value.trim(),
-            feed_url: $("#s_feed").value.trim(),
-            feedUrl:  $("#s_feed").value.trim()  // keep both keys for compatibility
+            low_score_threshold: Math.max(0, Math.min(100, parseInt($("#s_lowscore").value) || DEFAULT_LOW_SCORE_THRESHOLD))
         };
         await saveSettings(patch);
+        lowScoreThreshold = patch.low_score_threshold;
         if(!SHARED_MODE){
             const nc=$("#s_code").value.trim(); if(nc){ S.code=nc; store.set("pipeline_state",S); }
         }
@@ -1184,26 +1379,52 @@
             if(confirm("Erase all jobs, settings, and sign-in on this device?")){ store.del("pipeline_state"); store.del("pipeline_session"); location.reload(); }
         }
     };
-    $("#s_pullfeed").onclick=()=>pullFeed($("#s_feed").value.trim());
+    $("#pullFeedBtn").onclick=()=>pullFeed();
 
     /* ============================================================
        FEED PULL
        ============================================================ */
-    async function pullFeed(url){
-        if(!url){ toast("Add your feed endpoint in Settings first"); return; }
+    const FEED_ENDPOINT = "/.netlify/functions/fetch-jobs";
+    async function pullFeed(){
         toast("Pulling feed…");
         try{
-            const res=await fetch(url);
+            const res=await fetch(FEED_ENDPOINT);
             const items=await res.json();
-            const seen=new Set(jobs.map(j=>j.url||(j.title+j.company)));
-            let added=0;
+            const byKey={};
+            jobs.forEach(j=>{ byKey[j.url||(j.title+j.company)]=j; });
+            let added=0, revived=0;
             const list = Array.isArray(items) ? items : (items.jobs||[]);
             for(const it of list){
                 const key=it.url||(it.title+it.company);
-                if(seen.has(key)) continue; seen.add(key);
+                const existing=byKey[key];
+                if(existing){
+                    // Same posting, unless the source reports a newer posted date —
+                    // that's a repost, so bring it back for another look.
+                    const newPosted=it.postedAt?new Date(it.postedAt).getTime():null;
+                    const oldPosted=existing.postedAt?new Date(existing.postedAt).getTime():null;
+                    if(newPosted && oldPosted && newPosted>oldPosted){
+                        if(existing.fit!=null){
+                            existing.history=existing.history||[];
+                            existing.history.push({
+                                type:"score", t:Date.now(), by:"Auto feed",
+                                fit:existing.fit, why:existing.why, feedback:existing.feedback,
+                                resumeId:existing.resumeId, resumeFilename:existing.resumeFilename, scoredAt:existing.scoredAt
+                            });
+                        }
+                        existing.postedAt=it.postedAt;
+                        existing.archived=false;
+                        existing.status="new";
+                        existing.fit=null; existing.why=""; existing.feedback=null; existing.improvements=null;
+                        existing.history=existing.history||[];
+                        existing.history.push({s:"new", t:Date.now(), by:"Auto feed"});
+                        await upsertJob(existing);
+                        revived++;
+                    }
+                    continue;
+                }
                 const j={
                     id: newId(), added:Date.now(), by:"Auto feed",
-                    status:"new", fit:null, why:"",
+                    status:"new", fit:null, why:"", postedAt: it.postedAt||null,
                     history:[{s:"new",t:Date.now(),by:"Auto feed"}],
                     title:   it.title||"",
                     company: it.company||"",
@@ -1214,12 +1435,44 @@
                     notes:   it.description||it.notes||""
                 };
                 jobs.unshift(j);
+                byKey[key]=j;
                 await upsertJob(j);
                 added++;
             }
-            closeModals(); render(); toast(added?`Added ${added} new roles`:"Feed is up to date");
+            closeModals(); render();
+            const parts=[]; if(added) parts.push(`${added} new`); if(revived) parts.push(`${revived} reposted`);
+            toast(parts.length ? `Added ${parts.join(", ")} roles` : "Feed is up to date");
         }catch(e){ toast("Couldn't reach the feed endpoint"); console.warn(e); }
     }
+
+    /* ============================================================
+       SCORE ALL / REMOVE LOW SCORES (bulk)
+       ============================================================ */
+    const sleep = ms => new Promise(r=>setTimeout(r, ms));
+
+    async function scoreAllUnscored(){
+        const targets = jobs.filter(j=>!j.archived && j.fit==null);
+        if(!targets.length){ toast("Nothing to score — every job already has a fit score"); return; }
+        if(!confirm(`Score ${targets.length} unscored job${targets.length===1?"":"s"}? This calls the AI ${targets.length} time${targets.length===1?"":"s"}.`)) return;
+        for(let i=0;i<targets.length;i++){
+            toast(`Scoring ${i+1}/${targets.length}…`);
+            await scoreFit(targets[i].id);
+            await sleep(350);
+        }
+        toast(`Scored ${targets.length} job${targets.length===1?"":"s"}`);
+    }
+
+    async function removeLowScores(){
+        const targets = jobs.filter(j=>!j.archived && j.fit!=null && j.fit<lowScoreThreshold);
+        if(!targets.length){ toast("No low-scoring jobs to remove"); return; }
+        if(!confirm(`Archive ${targets.length} job${targets.length===1?"":"s"} scoring below ${lowScoreThreshold}?`)) return;
+        for(const j of targets){ j.archived = true; await upsertJob(j); }
+        render();
+        toast(`Archived ${targets.length} low-scoring job${targets.length===1?"":"s"}`);
+    }
+
+    $("#scoreAllBtn").onclick  = scoreAllUnscored;
+    $("#removeLowBtn").onclick = removeLowScores;
 
     /* ============================================================
        MODAL CLOSE

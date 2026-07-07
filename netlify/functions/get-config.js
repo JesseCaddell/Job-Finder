@@ -27,7 +27,8 @@ export async function handler() {
         },
         body: JSON.stringify({
             supabase: { url, anonKey },
-            scoringUrl: "/.netlify/functions/score-fit"
+            scoringUrl: "/.netlify/functions/score-fit",
+            improveUrl: "/.netlify/functions/improve-resume"
         })
     };
 }
