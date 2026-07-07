@@ -335,8 +335,14 @@
                         <div class="ulbl">Drop a PDF or Word doc here, or <u>browse</u></div>
                         <div class="ufn" id="resumeFileName"></div>
                     </div>
-                    <div style="margin-top:8px;font-size:12px;color:var(--ink-faint);text-align:center">— or paste plain text —</div>
-                    <textarea id="s_resume" style="width:100%;margin-top:6px;min-height:70px;border:1px solid var(--line);border-radius:9px;padding:10px;outline:none;resize:vertical" placeholder="Paste resume text here as a fallback…"></textarea>
+                    <div id="resumeViewRow" class="hidden" style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                        <button class="btn ghost sm" id="resumeViewBtn" type="button">📄 View current resume</button>
+                        <span id="resumeViewName" style="font-size:12px;color:var(--ink-faint)"></span>
+                    </div>
+                    <div id="resumeTextFallback">
+                        <div style="margin-top:8px;font-size:12px;color:var(--ink-faint);text-align:center">— or paste plain text —</div>
+                        <textarea id="s_resume" style="width:100%;margin-top:6px;min-height:70px;border:1px solid var(--line);border-radius:9px;padding:10px;outline:none;resize:vertical" placeholder="Paste resume text here as a fallback…"></textarea>
+                    </div>
                     <div id="resumeStatus" style="font-size:12px;color:var(--ink-faint);margin-top:5px"></div>
                 </div>
             </div>
@@ -1051,18 +1057,68 @@
                 text = await extractDocx(file);
             }
             if(!text.trim()) throw new Error("No text found in file");
-            // Store extracted text in settings
             const settings = await loadSettings();
+            const patch = { resume: text, resume_text: text };
+
+            if(SHARED_MODE){
+                status.textContent = "Uploading file…";
+                const version = await uploadResumeVersion(file, text);
+                const versions = (settings.resume_versions || []).concat(version);
+                patch.resume_versions = versions;
+                settings.resume_versions = versions;
+            }
+
             settings.resume_text = text;
-            settings.resume      = text;   // keep textarea in sync
-            await saveSettings({ resume: text, resume_text: text });
+            settings.resume      = text;
+            await saveSettings(patch);
             $("#s_resume").value = text.slice(0, 800) + (text.length > 800 ? "\u2026(truncated in preview)" : "");
             $("#resumeFileName").textContent = "✓ " + file.name + " — " + Math.round(text.length/4) + " tokens extracted";
             status.textContent = "";
+            refreshResumeViewer(settings);
             toast("Resume uploaded and ready for scoring");
         } catch(e) {
             status.textContent = "Could not read file: " + e.message;
             console.warn(e);
+        }
+    }
+
+    /* ─── Resume file storage (shared mode only) ───
+       Local mode has no backend to store the raw file in, so it keeps
+       today's extracted-text-only behavior. */
+    async function uploadResumeVersion(file, text){
+        const path = `${supaUser.id}/${Date.now()}-${file.name}`;
+        const { error } = await SB.storage.from("resumes").upload(path, file, { upsert: true });
+        if(error) throw new Error("Storage upload failed: " + error.message);
+        return { id: newId(), filename: file.name, path, text, uploadedAt: new Date().toISOString() };
+    }
+
+    function currentResumeVersion(settings){
+        const versions = settings?.resume_versions || [];
+        return versions.length ? versions[versions.length - 1] : null;
+    }
+
+    async function viewResumeFile(path){
+        const { data, error } = await SB.storage.from("resumes").createSignedUrl(path, 3600);
+        if(error){ toast("Couldn't open resume file"); console.warn(error); return; }
+        window.open(data.signedUrl, "_blank");
+    }
+
+    function refreshResumeViewer(settings){
+        const row = $("#resumeViewRow");
+        const fallback = $("#resumeTextFallback");
+        if(!SHARED_MODE){
+            row.classList.add("hidden");
+            fallback.classList.remove("hidden");
+            return;
+        }
+        const current = currentResumeVersion(settings);
+        fallback.classList.add("hidden");
+        if(current){
+            row.classList.remove("hidden");
+            $("#resumeViewName").textContent = current.filename;
+            $("#resumeViewBtn").onclick = ()=>viewResumeFile(current.path);
+        } else {
+            row.classList.add("hidden");
         }
     }
 
@@ -1120,6 +1176,7 @@
             $("#s_reset").textContent="Sign out everywhere";
         }
         $("#settingsModal").classList.remove("hidden");
+        refreshResumeViewer(settings);
         // Wire resume upload zone
         const zone = $("#resumeZone");
         const inp  = $("#resumeFile");

@@ -21,6 +21,8 @@ create table if not exists jobs (
     status      text default 'new',     -- new | applied | interview | offer | denied
     fit         int,
     why         text,
+    feedback    jsonb,
+    scored_at   timestamptz,
     added_by    text,
     history     jsonb default '[]',
     created_at  timestamptz default now()
@@ -31,13 +33,24 @@ create table if not exists settings (
                                         id        int primary key default 1,
                                         profile   text,
                                         resume    text,
+                                        resume_text      text,
+                                        resume_versions   jsonb default '[]',   -- [{id, filename, path, text, uploadedAt}]
                                         feed_url  text
 );
 insert into settings (id) values (1) on conflict do nothing;
 
 -- Resume file storage: in the Supabase dashboard, Storage → create a
--- bucket named "resumes" (private). Upload files there; reference the path
--- from the jobs/settings tables as needed.
+-- private bucket named "resumes". Files are uploaded to
+-- {user_id}/{timestamp}-{filename} and referenced by path from
+-- settings.resume_versions.
+insert into storage.buckets (id, name, public) values ('resumes', 'resumes', false) on conflict do nothing;
+
+create policy "authed read own resumes" on storage.objects for select to authenticated
+    using (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "authed write own resumes" on storage.objects for insert to authenticated
+    with check (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "authed update own resumes" on storage.objects for update to authenticated
+    using (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- Row Level Security: simplest setup is to require an authenticated user.
 alter table jobs enable row level security;
