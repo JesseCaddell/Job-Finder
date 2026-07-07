@@ -1194,7 +1194,7 @@
         const status = $("#resumeStatus");
         status.textContent = "Reading file…";
         try {
-            let text = "";
+            let text;
             if(file.type === "application/pdf" || file.name.endsWith(".pdf")){
                 text = await extractPdf(file);
             } else {
