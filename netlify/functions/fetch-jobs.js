@@ -30,7 +30,7 @@ async function greenhouse(token){
             url:j.absolute_url, source:"Greenhouse", postedAt:j.updated_at||null,
             description:(j.content||"").replace(/<[^>]+>/g," ").slice(0,600)
         }));
-    }catch(e){ return []; }
+    }catch(e){ console.error("[fetch-jobs] greenhouse("+token+") failed:", e.message); return []; }
 }
 async function lever(slug){
     try{
@@ -42,7 +42,7 @@ async function lever(slug){
             postedAt:j.createdAt?new Date(j.createdAt).toISOString():null,
             description:(j.descriptionPlain||"").slice(0,600)
         }));
-    }catch(e){ return []; }
+    }catch(e){ console.error("[fetch-jobs] lever("+slug+") failed:", e.message); return []; }
 }
 async function usajobs(){
     const key=process.env.USAJOBS_KEY, email=process.env.USAJOBS_EMAIL;
@@ -51,6 +51,7 @@ async function usajobs(){
         const kw=encodeURIComponent("project manager product owner analyst");
         const r=await fetch(`https://data.usajobs.gov/api/Search?Keyword=${kw}&LocationName=Washington&ResultsPerPage=25`,
             { headers:{ "Host":"data.usajobs.gov","User-Agent":email,"Authorization-Key":key } });
+        if(!r.ok){ console.error("[fetch-jobs] usajobs HTTP "+r.status+":", await r.text()); return []; }
         const d=await r.json();
         const items=(d.SearchResult&&d.SearchResult.SearchResultItems)||[];
         return items.map(it=>{ const f=it.MatchedObjectDescriptor; return {
@@ -58,7 +59,7 @@ async function usajobs(){
             location:(f.PositionLocationDisplay||""), url:f.PositionURI, source:"USAJOBS",
             postedAt:f.PublicationStartDate||null,
             description:(f.UserArea&&f.UserArea.Details&&f.UserArea.Details.JobSummary||"").slice(0,600) };});
-    }catch(e){ return []; }
+    }catch(e){ console.error("[fetch-jobs] usajobs failed:", e.message); return []; }
 }
 async function adzuna(){
     const id=process.env.ADZUNA_APP_ID, key=process.env.ADZUNA_APP_KEY;
@@ -66,12 +67,13 @@ async function adzuna(){
     try{
         const r=await fetch(`https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${id}&app_key=${key}`+
             `&what=project%20manager%20product%20owner%20analyst&where=Seattle&distance=60&results_per_page=25`);
+        if(!r.ok){ console.error("[fetch-jobs] adzuna HTTP "+r.status+":", await r.text()); return []; }
         const d=await r.json();
         return (d.results||[]).map(j=>({
             title:j.title, company:(j.company&&j.company.display_name)||"", location:(j.location&&j.location.display_name)||"",
             url:j.redirect_url, source:"Adzuna", postedAt:j.created||null,
             description:(j.description||"").slice(0,600) }));
-    }catch(e){ return []; }
+    }catch(e){ console.error("[fetch-jobs] adzuna failed:", e.message); return []; }
 }
 
 export async function handler(){
@@ -85,8 +87,10 @@ export async function handler(){
         adzuna()
     ]);
 
+    const rawCount = batches.reduce((n,b)=>n+b.length, 0);
     let jobs = batches.flat()
         .filter(j => titleMatches(j.title) && locMatches(j.location));
+    console.log(`[fetch-jobs] ${rawCount} raw results from all sources, ${jobs.length} matched title/location keywords`);
 
     // dedupe by url
     const seen=new Set();
