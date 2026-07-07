@@ -265,6 +265,8 @@
                 <option value="title">Title A–Z</option>
             </select>
             <button class="btn ghost" id="pullFeedBtn">⟳ Pull feed now</button>
+            <button class="btn ghost" id="scoreAllBtn">✦ Score all</button>
+            <button class="btn ghost" id="removeLowBtn">Remove low scores</button>
             <button class="btn" id="addBtn">+ Add a job</button>
         </div>
         <div class="tagrow" id="tagrow"></div>
@@ -1442,6 +1444,35 @@
             toast(parts.length ? `Added ${parts.join(", ")} roles` : "Feed is up to date");
         }catch(e){ toast("Couldn't reach the feed endpoint"); console.warn(e); }
     }
+
+    /* ============================================================
+       SCORE ALL / REMOVE LOW SCORES (bulk)
+       ============================================================ */
+    const sleep = ms => new Promise(r=>setTimeout(r, ms));
+
+    async function scoreAllUnscored(){
+        const targets = jobs.filter(j=>!j.archived && j.fit==null);
+        if(!targets.length){ toast("Nothing to score — every job already has a fit score"); return; }
+        if(!confirm(`Score ${targets.length} unscored job${targets.length===1?"":"s"}? This calls the AI ${targets.length} time${targets.length===1?"":"s"}.`)) return;
+        for(let i=0;i<targets.length;i++){
+            toast(`Scoring ${i+1}/${targets.length}…`);
+            await scoreFit(targets[i].id);
+            await sleep(350);
+        }
+        toast(`Scored ${targets.length} job${targets.length===1?"":"s"}`);
+    }
+
+    async function removeLowScores(){
+        const targets = jobs.filter(j=>!j.archived && j.fit!=null && j.fit<lowScoreThreshold);
+        if(!targets.length){ toast("No low-scoring jobs to remove"); return; }
+        if(!confirm(`Archive ${targets.length} job${targets.length===1?"":"s"} scoring below ${lowScoreThreshold}?`)) return;
+        for(const j of targets){ j.archived = true; await upsertJob(j); }
+        render();
+        toast(`Archived ${targets.length} low-scoring job${targets.length===1?"":"s"}`);
+    }
+
+    $("#scoreAllBtn").onclick  = scoreAllUnscored;
+    $("#removeLowBtn").onclick = removeLowScores;
 
     /* ============================================================
        MODAL CLOSE
