@@ -252,7 +252,7 @@
 
     <div class="wrap">
         <div class="rail" id="rail"></div>
-        <div class="railhint">Tap a stage to filter · showing <span id="showingCount">0</span> roles</div>
+        <div class="railhint">Tap a stage to filter · showing <span id="showingCount">0</span> roles · <button class="linkbtn" id="archivedToggle" style="font-size:12px"></button></div>
         <div class="toolbar">
             <div class="search">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A91A0" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -344,6 +344,11 @@
                         <textarea id="s_resume" style="width:100%;margin-top:6px;min-height:70px;border:1px solid var(--line);border-radius:9px;padding:10px;outline:none;resize:vertical" placeholder="Paste resume text here as a fallback…"></textarea>
                     </div>
                     <div id="resumeStatus" style="font-size:12px;color:var(--ink-faint);margin-top:5px"></div>
+                </div>
+                <div class="setrow">
+                    <div class="lbl">Low score threshold</div>
+                    <div class="desc">Scored jobs below this are eligible to be removed from the main feed.</div>
+                    <input id="s_lowscore" type="number" min="0" max="100" style="width:100px;margin-top:8px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;outline:none" />
                 </div>
             </div>
 
@@ -449,6 +454,8 @@
 
     /* ─── Default local state ─── */
     const DEFAULT_PROFILE = "Targeting Project Manager, Technical Project Manager, Product Owner, and Analyst roles in the Seattle / South Puget Sound area (open to remote). Mid-level. Strengths: stakeholder coordination, roadmaps, cross-functional delivery, data analysis.";
+    const DEFAULT_LOW_SCORE_THRESHOLD = 50;
+    let lowScoreThreshold = DEFAULT_LOW_SCORE_THRESHOLD;
 
     function freshLocalState(){
         return {
@@ -534,6 +541,8 @@
             resumeId:       r.resume_id || null,
             resumeFilename: r.resume_filename || null,
             improvements:   r.improvements || null,
+            archived:  !!r.archived,
+            postedAt:  r.posted_at || null,
             history:  r.history || [],
             title:    r.title || "",
             company:  r.company || "",
@@ -563,6 +572,8 @@
             resume_id:       j.resumeId || null,
             resume_filename: j.resumeFilename || null,
             improvements:    j.improvements || null,
+            archived:  !!j.archived,
+            posted_at: j.postedAt || null,
             added_by:  j.by,
             history:   j.history || []
         };
@@ -722,6 +733,8 @@
 
         // Load data
         await loadJobs();
+        const settings = await loadSettings();
+        lowScoreThreshold = settings.low_score_threshold ?? DEFAULT_LOW_SCORE_THRESHOLD;
 
         // Wire real-time updates
         subscribeRealtime();
@@ -734,10 +747,10 @@
     /* ============================================================
        RENDER
        ============================================================ */
-    let filter = { stage:null, tag:null, q:"", sort:"added" };
+    let filter = { stage:null, tag:null, q:"", sort:"added", archived:false };
 
     function visibleJobs(){
-        let list = jobs.slice();
+        let list = jobs.filter(j=>!!j.archived === filter.archived);
         if(filter.stage) list = list.filter(j=>j.status===filter.stage);
         if(filter.tag)   list = list.filter(j=>(j.tags||[]).map(t=>t.toLowerCase()).includes(filter.tag));
         if(filter.q){
@@ -803,6 +816,9 @@
       </select>
       ${j.status==="interview"?`<button class="miniact" data-cal="${j.id}">＋ Calendar</button>`:""}
       <button class="miniact" data-open="${j.id}">Details</button>
+      ${j.archived
+            ? `<button class="miniact" data-restore="${j.id}">Restore</button>`
+            : (j.fit!=null && j.fit<lowScoreThreshold ? `<button class="miniact" data-archive="${j.id}" style="color:var(--denied)">Remove</button>` : "")}
       <span class="byline">${esc(j.by||"")} · ${timeAgo(j.added)}</span>
     </div>
   </div>`;
@@ -812,17 +828,26 @@
         renderRail(); renderTagrow();
         const list = visibleJobs();
         $("#showingCount").textContent = list.length;
+        const archivedN = jobs.filter(j=>j.archived).length;
+        $("#archivedToggle").textContent = filter.archived ? "Back to board" : `Archived (${archivedN})`;
         $("#sort").value = filter.sort;
         const c = $("#cards");
         if(!list.length){
             c.innerHTML = `<div class="empty"><span class="serif">Nothing here yet.</span>
-      ${jobs.length ? "No roles match this filter." : "Paste a job link to get started — or wire up the auto-feed in Settings."}
-      <div style="margin-top:16px"><button class="btn" id="emptyAdd">+ Add your first job</button></div></div>`;
+      ${filter.archived ? "No archived jobs." : (jobs.length ? "No roles match this filter." : "Paste a job link to get started — or wire up the auto-feed in Settings.")}
+      ${filter.archived ? "" : '<div style="margin-top:16px"><button class="btn" id="emptyAdd">+ Add your first job</button></div>'}</div>`;
             const ea=$("#emptyAdd"); if(ea) ea.onclick=openAdd;
         } else {
             c.innerHTML = list.map(jobCard).join("");
         }
         bindCards();
+    }
+
+    async function setArchived(id, archived){
+        const j = jobs.find(x=>x.id===id); if(!j) return;
+        j.archived = archived;
+        await upsertJob(j);
+        render();
     }
 
     function bindCards(){
@@ -838,11 +863,14 @@
         $$("[data-score]").forEach(b=>b.onclick=()=>scoreFit(b.dataset.score));
         $$("[data-open]").forEach(b=>b.onclick=()=>openDetail(b.dataset.open));
         $$("[data-cal]").forEach(b=>b.onclick=()=>addToCalendar(b.dataset.cal));
+        $$("[data-archive]").forEach(b=>b.onclick=()=>setArchived(b.dataset.archive, true));
+        $$("[data-restore]").forEach(b=>b.onclick=()=>setArchived(b.dataset.restore, false));
     }
 
     $("#q").oninput      = e=>{ filter.q=e.target.value; render(); };
     $("#sort").onchange  = e=>{ filter.sort=e.target.value; render(); };
     $("#addBtn").onclick = openAdd;
+    $("#archivedToggle").onclick = ()=>{ filter.archived=!filter.archived; filter.stage=null; render(); };
 
     /* ============================================================
        ADD / EDIT
@@ -1280,6 +1308,7 @@
         const settings = await loadSettings();
         $("#s_profile").value = settings.profile || DEFAULT_PROFILE;
         $("#s_resume").value  = settings.resume  || "";
+        $("#s_lowscore").value = settings.low_score_threshold ?? DEFAULT_LOW_SCORE_THRESHOLD;
         if(!SHARED_MODE){
             $("#s_localGroup").classList.remove("hidden");
             $("#s_code").value="";
@@ -1328,9 +1357,11 @@
     $("#s_save").onclick = async ()=>{
         const patch = {
             profile:  $("#s_profile").value.trim(),
-            resume:   $("#s_resume").value.trim()
+            resume:   $("#s_resume").value.trim(),
+            low_score_threshold: Math.max(0, Math.min(100, parseInt($("#s_lowscore").value) || DEFAULT_LOW_SCORE_THRESHOLD))
         };
         await saveSettings(patch);
+        lowScoreThreshold = patch.low_score_threshold;
         if(!SHARED_MODE){
             const nc=$("#s_code").value.trim(); if(nc){ S.code=nc; store.set("pipeline_state",S); }
         }
@@ -1357,15 +1388,41 @@
         try{
             const res=await fetch(FEED_ENDPOINT);
             const items=await res.json();
-            const seen=new Set(jobs.map(j=>j.url||(j.title+j.company)));
-            let added=0;
+            const byKey={};
+            jobs.forEach(j=>{ byKey[j.url||(j.title+j.company)]=j; });
+            let added=0, revived=0;
             const list = Array.isArray(items) ? items : (items.jobs||[]);
             for(const it of list){
                 const key=it.url||(it.title+it.company);
-                if(seen.has(key)) continue; seen.add(key);
+                const existing=byKey[key];
+                if(existing){
+                    // Same posting, unless the source reports a newer posted date —
+                    // that's a repost, so bring it back for another look.
+                    const newPosted=it.postedAt?new Date(it.postedAt).getTime():null;
+                    const oldPosted=existing.postedAt?new Date(existing.postedAt).getTime():null;
+                    if(newPosted && oldPosted && newPosted>oldPosted){
+                        if(existing.fit!=null){
+                            existing.history=existing.history||[];
+                            existing.history.push({
+                                type:"score", t:Date.now(), by:"Auto feed",
+                                fit:existing.fit, why:existing.why, feedback:existing.feedback,
+                                resumeId:existing.resumeId, resumeFilename:existing.resumeFilename, scoredAt:existing.scoredAt
+                            });
+                        }
+                        existing.postedAt=it.postedAt;
+                        existing.archived=false;
+                        existing.status="new";
+                        existing.fit=null; existing.why=""; existing.feedback=null; existing.improvements=null;
+                        existing.history=existing.history||[];
+                        existing.history.push({s:"new", t:Date.now(), by:"Auto feed"});
+                        await upsertJob(existing);
+                        revived++;
+                    }
+                    continue;
+                }
                 const j={
                     id: newId(), added:Date.now(), by:"Auto feed",
-                    status:"new", fit:null, why:"",
+                    status:"new", fit:null, why:"", postedAt: it.postedAt||null,
                     history:[{s:"new",t:Date.now(),by:"Auto feed"}],
                     title:   it.title||"",
                     company: it.company||"",
@@ -1376,10 +1433,13 @@
                     notes:   it.description||it.notes||""
                 };
                 jobs.unshift(j);
+                byKey[key]=j;
                 await upsertJob(j);
                 added++;
             }
-            closeModals(); render(); toast(added?`Added ${added} new roles`:"Feed is up to date");
+            closeModals(); render();
+            const parts=[]; if(added) parts.push(`${added} new`); if(revived) parts.push(`${revived} reposted`);
+            toast(parts.length ? `Added ${parts.join(", ")} roles` : "Feed is up to date");
         }catch(e){ toast("Couldn't reach the feed endpoint"); console.warn(e); }
     }
 

@@ -55,3 +55,16 @@ alter table jobs add column if not exists improvements jsonb;
 Also deploy the new `netlify/functions/improve-resume.js` function (same
 `ANTHROPIC_API_KEY` env var as `score-fit.js` — no new secret needed) and
 redeploy so `get-config.js` starts serving `improveUrl`.
+
+## Low scoring jobs: archive + configurable threshold + repost detection (fix_list: Low scoring jobs)
+
+Adds a per-job "Remove" action (archives instead of deletes, so the pull-feed
+dedupe still sees it), an "Archived" view, a configurable low-score threshold
+in Settings, and repost detection so a job that reappears with a newer
+posted date gets revived instead of silently skipped. Run:
+
+```sql
+alter table jobs add column if not exists archived boolean default false;
+alter table jobs add column if not exists posted_at timestamptz;
+alter table settings add column if not exists low_score_threshold int default 50;
+```

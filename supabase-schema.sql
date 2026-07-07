@@ -26,6 +26,8 @@ create table if not exists jobs (
     resume_id       text,      -- id of the settings.resume_versions entry this score used
     resume_filename text,
     improvements    jsonb,     -- {text, generatedAt}
+    archived    boolean default false,
+    posted_at   timestamptz,   -- source-reported posting date, used to detect reposts
     added_by    text,
     history     jsonb default '[]',
     created_at  timestamptz default now()
@@ -38,6 +40,7 @@ create table if not exists settings (
                                         resume    text,
                                         resume_text      text,
                                         resume_versions   jsonb default '[]',   -- [{id, filename, path, text, uploadedAt}]
+                                        low_score_threshold int default 50,
                                         feed_url  text
 );
 insert into settings (id) values (1) on conflict do nothing;
