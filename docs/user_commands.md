@@ -39,3 +39,19 @@ likely been silently failing to save feedback (or erroring on upsert). Run:
 alter table jobs add column if not exists feedback jsonb;
 alter table jobs add column if not exists scored_at timestamptz;
 ```
+
+## Ratings follow-up: draft improvements + score-per-resume history (fix_list: Ratings follow up)
+
+Adds a "Draft improvements" button (jobs scoring 60%+) and a "Score additional
+resume" flow that re-scores a job against a newly uploaded resume version,
+keeping the prior score attached to the resume that produced it. Run:
+
+```sql
+alter table jobs add column if not exists resume_id text;
+alter table jobs add column if not exists resume_filename text;
+alter table jobs add column if not exists improvements jsonb;
+```
+
+Also deploy the new `netlify/functions/improve-resume.js` function (same
+`ANTHROPIC_API_KEY` env var as `score-fit.js` — no new secret needed) and
+redeploy so `get-config.js` starts serving `improveUrl`.

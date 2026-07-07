@@ -23,6 +23,9 @@ create table if not exists jobs (
     why         text,
     feedback    jsonb,
     scored_at   timestamptz,
+    resume_id       text,      -- id of the settings.resume_versions entry this score used
+    resume_filename text,
+    improvements    jsonb,     -- {text, generatedAt}
     added_by    text,
     history     jsonb default '[]',
     created_at  timestamptz default now()

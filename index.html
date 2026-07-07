@@ -398,7 +398,7 @@
 
     /* CONFIG is loaded from /.netlify/functions/get-config at boot.
        Nothing sensitive lives in this file — keys stay in Netlify env vars. */
-    let CONFIG = { supabase: { url: "", anonKey: "" }, scoringUrl: "/.netlify/functions/score-fit" };
+    let CONFIG = { supabase: { url: "", anonKey: "" }, scoringUrl: "/.netlify/functions/score-fit", improveUrl: "/.netlify/functions/improve-resume" };
 
     /* ─── Supabase client — set after config loads ─── */
     let SB          = null;
@@ -531,6 +531,9 @@
             why:      r.why || "",
             feedback: r.feedback || null,
             scoredAt: r.scored_at || null,
+            resumeId:       r.resume_id || null,
+            resumeFilename: r.resume_filename || null,
+            improvements:   r.improvements || null,
             history:  r.history || [],
             title:    r.title || "",
             company:  r.company || "",
@@ -557,6 +560,9 @@
             why:       j.why,
             feedback:  j.feedback || null,
             scored_at: j.scoredAt || null,
+            resume_id:       j.resumeId || null,
+            resume_filename: j.resumeFilename || null,
+            improvements:    j.improvements || null,
             added_by:  j.by,
             history:   j.history || []
         };
@@ -926,6 +932,17 @@
             sections += '<div class="ai-section"><b>Recommendation</b>'+esc(j.feedback.recommendation)+'</div>';
         if(!j.feedback && j.why)
             sections += '<div class="ai-section"><b>Note</b>'+esc(j.why)+'</div>';
+        if(j.resumeFilename)
+            sections += '<div class="ai-section"><b>Scored against</b>'+esc(j.resumeFilename)+'</div>';
+
+        if(j.improvements?.text){
+            sections += '<div class="ai-section"><b>Draft improvements</b>'
+                + '<div style="white-space:pre-wrap">'+esc(j.improvements.text)+'</div>'
+                + '<button class="miniact" id="d_copyimprovements" style="margin-top:6px">Copy to clipboard</button>'
+                + '</div>';
+        } else if(j.fit>=60){
+            sections += '<div class="ai-section"><button class="btn ghost sm" id="d_draftimprovements">✦ Draft improvements</button></div>';
+        }
 
         return '<div class="ai-panel">'
             + '<div class="ai-head">'
@@ -945,11 +962,20 @@
     function openDetail(id){
         const j=jobs.find(x=>x.id===id); if(!j) return;
         $("#d_title").textContent = j.title||"Role";
-        const hist = (j.history||[]).slice().reverse().map(h=>`
+        const hist = (j.history||[]).slice().reverse().map(h=>{
+            if(h.type==="score"){
+                return `
+    <div style="display:flex;gap:9px;font-size:13px;color:var(--ink-soft);padding:5px 0">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--ink-faint);margin-top:6px;flex:none"></span>
+      <span><b style="color:var(--ink);font-weight:550">Scored ${h.fit}/100</b>${h.resumeFilename?" against "+esc(h.resumeFilename):""} — ${h.by||"?"} · ${new Date(h.t).toLocaleDateString()}</span>
+    </div>`;
+            }
+            return `
     <div style="display:flex;gap:9px;font-size:13px;color:var(--ink-soft);padding:5px 0">
       <span style="width:8px;height:8px;border-radius:50%;background:${stageMeta(h.s).color};margin-top:6px;flex:none"></span>
       <span><b style="color:var(--ink);font-weight:550">${stageMeta(h.s).label}</b> — ${h.by||"?"} · ${new Date(h.t).toLocaleDateString()}</span>
-    </div>`).join("");
+    </div>`;
+        }).join("");
         $("#d_body").innerHTML=`
     <div class="meta" style="margin-bottom:14px">${esc(j.company||"—")} · ${esc(j.loc||"—")} ${j.src?"· "+esc(j.src):""}</div>
     ${j.url?`<a class="btn ghost sm" href="${esc(j.url)}" target="_blank" rel="noopener" style="text-decoration:none">Open posting ↗</a>`:""}
@@ -959,8 +985,10 @@
       <div style="font-size:12.5px;font-weight:550;color:var(--ink-soft);margin-bottom:5px">History</div>
       ${hist||'<div style="font-size:13px;color:var(--ink-faint)">No history yet.</div>'}
     </div>
+    <input type="file" id="d_resumeFile" class="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
     <div class="mfoot" style="margin-top:20px">
       <button class="btn ghost sm" id="d_score">✦ Re-score fit</button>
+      ${j.fit!=null?`<button class="btn ghost sm" id="d_scorenew">✦ Score additional resume</button>`:""}
       <button class="btn ghost sm" id="d_edit">Edit</button>
       <button class="btn ghost sm" id="d_del" style="color:var(--denied)">Delete</button>
     </div>`;
@@ -968,6 +996,20 @@
         $("#d_edit").onclick=()=>{ closeModals(); openEdit(j); };
         $("#d_del").onclick=async ()=>{
             if(confirm("Delete this role from the board?")){ await deleteJob(id); closeModals(); toast("Deleted"); }
+        };
+        const scoreNewBtn = $("#d_scorenew");
+        if(scoreNewBtn){
+            scoreNewBtn.onclick = ()=> $("#d_resumeFile").click();
+            $("#d_resumeFile").onchange = e=>{
+                if(e.target.files[0]) scoreAdditionalResume(id, e.target.files[0]);
+            };
+        }
+        const draftBtn = $("#d_draftimprovements");
+        if(draftBtn) draftBtn.onclick = ()=>draftImprovements(id);
+        const copyBtn = $("#d_copyimprovements");
+        if(copyBtn) copyBtn.onclick = ()=>{
+            navigator.clipboard.writeText(j.improvements.text);
+            toast("Copied to clipboard");
         };
         $("#detailModal").classList.remove("hidden");
     }
@@ -998,7 +1040,7 @@
        Manual-only — never fires without you clicking the button.
        Uses claude-haiku-4-5 (cheapest model) server-side.
        ============================================================ */
-    async function scoreFit(id){
+    async function scoreFit(id, override){
         const j=jobs.find(x=>x.id===id); if(!j) return;
         const btn = $(`[data-score="${id}"]`);
         if(btn){ btn.textContent="Scoring…"; btn.disabled=true; }
@@ -1006,8 +1048,14 @@
 
         const settings = await loadSettings();
         const profile  = settings.profile || DEFAULT_PROFILE;
-        // Prefer uploaded resume text; fall back to pasted text
-        const resume   = (settings.resume_text || settings.resume || "").slice(0, 4000);
+        const currentVersion = SHARED_MODE ? currentResumeVersion(settings) : null;
+        // Prefer an explicit override resume (e.g. "score additional resume"),
+        // then the uploaded/versioned resume, then the pasted fallback.
+        const resumeText     = override?.text || settings.resume_text || settings.resume || "";
+        const resume         = resumeText.slice(0, 4000);
+        const resumeId       = override?.id       ?? currentVersion?.id       ?? null;
+        const resumeFilename = override?.filename ?? currentVersion?.filename ?? null;
+        const who = SHARED_MODE ? (supaUser.user_metadata?.name||supaUser.email.split("@")[0]) : session.user;
 
         try{
             const res = await fetch(CONFIG.scoringUrl, {
@@ -1024,10 +1072,25 @@
             });
             if(!res.ok) throw new Error("HTTP "+res.status);
             const out = await res.json();
-            j.fit      = Math.max(0, Math.min(100, parseInt(out.fit)||0));
-            j.why      = out.summary || out.why || "";   // backwards compat
-            j.feedback = out.feedback || null;
-            j.scoredAt = new Date().toISOString();
+
+            // Keep the prior score attached to whichever resume produced it,
+            // instead of silently overwriting it.
+            if(j.fit!=null){
+                j.history = j.history||[];
+                j.history.push({
+                    type: "score", t: Date.now(), by: who,
+                    fit: j.fit, why: j.why, feedback: j.feedback,
+                    resumeId: j.resumeId, resumeFilename: j.resumeFilename, scoredAt: j.scoredAt
+                });
+            }
+
+            j.fit            = Math.max(0, Math.min(100, parseInt(out.fit)||0));
+            j.why            = out.summary || out.why || "";   // backwards compat
+            j.feedback       = out.feedback || null;
+            j.scoredAt       = new Date().toISOString();
+            j.resumeId       = resumeId;
+            j.resumeFilename = resumeFilename;
+            j.improvements   = null;   // stale relative to the new score
             // Merge any suggested tags
             (out.tags||[]).forEach(t=>{
                 t=String(t).toLowerCase().trim();
@@ -1040,6 +1103,57 @@
             toast("Scoring unavailable — deploy the score-fit function and set ANTHROPIC_API_KEY in Netlify");
             console.warn("Score fit failed:",e);
             if(btn){ btn.textContent="✦ Score fit"; btn.disabled=false; }
+        }
+    }
+
+    /* ─── Draft improvements (AI resume suggestions for fit>=60) ─── */
+    async function draftImprovements(id){
+        const j=jobs.find(x=>x.id===id); if(!j) return;
+        toast("Drafting improvements…");
+        const settings = await loadSettings();
+        const profile  = settings.profile || DEFAULT_PROFILE;
+        const resume   = (settings.resume_text || settings.resume || "").slice(0, 4000);
+        try{
+            const res = await fetch(CONFIG.improveUrl, {
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({
+                    profile, resume,
+                    title: j.title, company: j.company, loc: j.loc,
+                    notes: (j.notes||"").slice(0,3000),
+                    gaps:  j.feedback?.gaps || ""
+                })
+            });
+            if(!res.ok) throw new Error("HTTP "+res.status);
+            const out = await res.json();
+            j.improvements = { text: out.improvements || "", generatedAt: new Date().toISOString() };
+            await upsertJob(j);
+            openDetail(id);
+            toast("Improvements drafted");
+        }catch(e){
+            toast("Couldn't draft improvements — check the improve-resume function is deployed");
+            console.warn("Draft improvements failed:",e);
+        }
+    }
+
+    /* ─── Score additional resume: upload a new version, rescore this job ─── */
+    async function scoreAdditionalResume(id, file){
+        if(!SHARED_MODE){ toast("Uploading a new resume version needs shared/Supabase mode"); return; }
+        toast("Reading new resume…");
+        try{
+            const text = (file.type === "application/pdf" || file.name.endsWith(".pdf"))
+                ? await extractPdf(file) : await extractDocx(file);
+            if(!text.trim()) throw new Error("No text found in file");
+
+            const version  = await uploadResumeVersion(file, text);
+            const settings = await loadSettings();
+            const versions = (settings.resume_versions || []).concat(version);
+            await saveSettings({ resume: text, resume_text: text, resume_versions: versions });
+
+            await scoreFit(id, { id: version.id, filename: version.filename, text });
+        }catch(e){
+            toast("Couldn't score with the new resume: " + e.message);
+            console.warn(e);
         }
     }
 
