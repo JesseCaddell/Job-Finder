@@ -264,6 +264,7 @@
                 <option value="company">Company A–Z</option>
                 <option value="title">Title A–Z</option>
             </select>
+            <button class="btn ghost" id="pullFeedBtn">⟳ Pull feed now</button>
             <button class="btn" id="addBtn">+ Add a job</button>
         </div>
         <div class="tagrow" id="tagrow"></div>
@@ -360,12 +361,6 @@
 
             <div class="setgroup">
                 <div class="setrow">
-                    <div class="lbl">Auto-feed endpoint <span style="font-weight:400;color:var(--ink-faint)">(optional)</span></div>
-                    <div class="desc">Your Netlify function URL. Leave blank to add jobs manually only.</div>
-                    <input id="s_feed" placeholder="https://your-site.netlify.app/.netlify/functions/fetch-jobs" style="width:100%;margin-top:8px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;outline:none" />
-                    <button class="btn ghost sm" id="s_pullfeed" style="margin-top:8px">Pull feed now</button>
-                </div>
-                <div class="setrow">
                     <div class="lbl">Danger zone</div>
                     <div class="desc" id="s_danger_desc">Wipe all local data on this device.</div>
                     <button class="btn ghost sm" id="s_reset" style="margin-top:8px;color:var(--denied);border-color:#E8CDCD">Clear all data</button>
@@ -455,7 +450,6 @@
             code: "",
             profile: DEFAULT_PROFILE,
             resume: "",
-            feedUrl: "",
             jobs: seedJobs()
         };
     }
@@ -1116,7 +1110,6 @@
         const settings = await loadSettings();
         $("#s_profile").value = settings.profile || DEFAULT_PROFILE;
         $("#s_resume").value  = settings.resume  || "";
-        $("#s_feed").value    = settings.feed_url || settings.feedUrl || "";
         if(!SHARED_MODE){
             $("#s_localGroup").classList.remove("hidden");
             $("#s_code").value="";
@@ -1164,9 +1157,7 @@
     $("#s_save").onclick = async ()=>{
         const patch = {
             profile:  $("#s_profile").value.trim(),
-            resume:   $("#s_resume").value.trim(),
-            feed_url: $("#s_feed").value.trim(),
-            feedUrl:  $("#s_feed").value.trim()  // keep both keys for compatibility
+            resume:   $("#s_resume").value.trim()
         };
         await saveSettings(patch);
         if(!SHARED_MODE){
@@ -1184,16 +1175,16 @@
             if(confirm("Erase all jobs, settings, and sign-in on this device?")){ store.del("pipeline_state"); store.del("pipeline_session"); location.reload(); }
         }
     };
-    $("#s_pullfeed").onclick=()=>pullFeed($("#s_feed").value.trim());
+    $("#pullFeedBtn").onclick=()=>pullFeed();
 
     /* ============================================================
        FEED PULL
        ============================================================ */
-    async function pullFeed(url){
-        if(!url){ toast("Add your feed endpoint in Settings first"); return; }
+    const FEED_ENDPOINT = "/.netlify/functions/fetch-jobs";
+    async function pullFeed(){
         toast("Pulling feed…");
         try{
-            const res=await fetch(url);
+            const res=await fetch(FEED_ENDPOINT);
             const items=await res.json();
             const seen=new Set(jobs.map(j=>j.url||(j.title+j.company)));
             let added=0;
