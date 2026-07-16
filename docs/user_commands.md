@@ -68,3 +68,17 @@ alter table jobs add column if not exists archived boolean default false;
 alter table jobs add column if not exists posted_at timestamptz;
 alter table settings add column if not exists low_score_threshold int default 50;
 ```
+
+## Enable USAJOBS in the auto-feed
+
+`fetch-jobs.js` already supports USAJOBS — it just needs credentials. Netlify
+dashboard → your site → Site settings → Environment variables → Add a
+variable, twice:
+
+```
+USAJOBS_KEY   = <the key from developer.usajobs.gov>
+USAJOBS_EMAIL = <the email you registered with USAJOBS>
+```
+
+Redeploy (or trigger a redeploy from the same screen) so the function picks
+them up. USAJOBS results will appear on the next "Pull feed now" click.
