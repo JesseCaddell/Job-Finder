@@ -21,6 +21,16 @@ const LOCATION_KEYWORDS = ["seattle","tacoma","bellevue","washington","wa","remo
 const titleMatches = t => { t=(t||"").toLowerCase(); return TITLE_KEYWORDS.some(k=>t.includes(k)); };
 const locMatches   = l => { if(!l) return true; l=l.toLowerCase(); return LOCATION_KEYWORDS.some(k=>l.includes(k)); };
 
+const DESC_CAP = 10000;
+const NAMED_ENTITIES = { amp:"&", lt:"<", gt:">", quot:'"', apos:"'", nbsp:" ",
+    rsquo:"’", lsquo:"‘", rdquo:"”", ldquo:"“", ndash:"–", mdash:"—", hellip:"…" };
+function decodeEntities(s){
+    return (s||"")
+        .replace(/&#x([0-9a-f]+);/gi, (_,h)=>String.fromCodePoint(parseInt(h,16)))
+        .replace(/&#(\d+);/g, (_,d)=>String.fromCodePoint(parseInt(d,10)))
+        .replace(/&([a-zA-Z]+);/g, (m,name)=> NAMED_ENTITIES[name.toLowerCase()] ?? m);
+}
+
 async function greenhouse(token){
     try{
         const r = await fetch(`https://boards-api.greenhouse.io/v1/boards/${token}/jobs?content=true`);
@@ -28,7 +38,7 @@ async function greenhouse(token){
         return (d.jobs||[]).map(j=>({
             title:j.title, company:token, location:(j.location&&j.location.name)||"",
             url:j.absolute_url, source:"Greenhouse", postedAt:j.updated_at||null,
-            description:(j.content||"").replace(/<[^>]+>/g," ").slice(0,600)
+            description:decodeEntities(j.content||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,DESC_CAP)
         }));
     }catch(e){ console.error("[fetch-jobs] greenhouse("+token+") failed:", e.message); return []; }
 }
@@ -40,7 +50,7 @@ async function lever(slug){
             title:j.text, company:slug, location:(j.categories&&j.categories.location)||"",
             url:j.hostedUrl, source:"Lever",
             postedAt:j.createdAt?new Date(j.createdAt).toISOString():null,
-            description:(j.descriptionPlain||"").slice(0,600)
+            description:decodeEntities(j.descriptionPlain||"").slice(0,DESC_CAP)
         }));
     }catch(e){ console.error("[fetch-jobs] lever("+slug+") failed:", e.message); return []; }
 }
@@ -58,7 +68,7 @@ async function usajobs(){
             title:f.PositionTitle, company:f.OrganizationName,
             location:(f.PositionLocationDisplay||""), url:f.PositionURI, source:"USAJOBS",
             postedAt:f.PublicationStartDate||null,
-            description:(f.UserArea&&f.UserArea.Details&&f.UserArea.Details.JobSummary||"").slice(0,600) };});
+            description:decodeEntities(f.UserArea&&f.UserArea.Details&&f.UserArea.Details.JobSummary||"").slice(0,DESC_CAP) };});
     }catch(e){ console.error("[fetch-jobs] usajobs failed:", e.message); return []; }
 }
 async function adzuna(){
@@ -72,7 +82,7 @@ async function adzuna(){
         return (d.results||[]).map(j=>({
             title:j.title, company:(j.company&&j.company.display_name)||"", location:(j.location&&j.location.display_name)||"",
             url:j.redirect_url, source:"Adzuna", postedAt:j.created||null,
-            description:(j.description||"").slice(0,600) }));
+            description:decodeEntities(j.description||"").slice(0,DESC_CAP) }));
     }catch(e){ console.error("[fetch-jobs] adzuna failed:", e.message); return []; }
 }
 
