@@ -57,10 +57,10 @@
         }
         .stage:hover{border-color:var(--ink-faint);transform:translateY(-1px)}
         .stage.active{border-color:var(--ink);box-shadow:var(--shadow)}
-        .stage .bar{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--st)}
+        .stage .bar{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--st, #6B7280)}
         .stage .n{font-family:Fraunces;font-size:30px;font-weight:500;line-height:1;letter-spacing:-.02em}
         .stage .lbl{font-size:12px;color:var(--ink-soft);margin-top:6px;display:flex;align-items:center;gap:6px;font-weight:500}
-        .stage .lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--st)}
+        .stage .lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--st, #6B7280)}
         .railhint{font-size:12px;color:var(--ink-faint);margin:0 2px 22px;text-align:right}
 
         /* ---- toolbar ---- */
@@ -267,6 +267,7 @@
             <button class="btn ghost" id="pullFeedBtn">⟳ Pull feed now</button>
             <button class="btn ghost" id="scoreAllBtn">✦ Score all</button>
             <button class="btn ghost" id="removeLowBtn">Remove low scores</button>
+            <button class="btn ghost hidden" id="purgeLowBtn">🗑 Remove scored under X</button>
             <button class="btn" id="addBtn">+ Add a job</button>
         </div>
         <div class="tagrow" id="tagrow"></div>
@@ -458,6 +459,7 @@
     const DEFAULT_PROFILE = "Targeting Project Manager, Technical Project Manager, Product Owner, and Analyst roles in the Seattle / South Puget Sound area (open to remote). Mid-level. Strengths: stakeholder coordination, roadmaps, cross-functional delivery, data analysis.";
     const DEFAULT_LOW_SCORE_THRESHOLD = 50;
     let lowScoreThreshold = DEFAULT_LOW_SCORE_THRESHOLD;
+    const DEFAULT_PURGE_THRESHOLD = 45;
 
     function freshLocalState(){
         return {
@@ -592,7 +594,7 @@
         }
     }
 
-    async function deleteJob(id){
+    async function deleteJob(id, doRender=true){
         if(SHARED_MODE){
             const { error } = await SB.from("jobs").delete().eq("id",id);
             if(error){ console.error("delete failed:", error); toast("Sync error — check console"); }
@@ -601,7 +603,7 @@
             store.set("pipeline_state", S);
         }
         jobs = jobs.filter(j=>j.id!==id);
-        render();
+        if(doRender) render();
     }
 
     /* ─── Real-time subscription (shared mode only) ─── */
@@ -770,7 +772,7 @@
 
     function renderRail(){
         const counts = {}; STAGES.forEach(s=>counts[s.key]=0);
-        jobs.forEach(j=>counts[j.status]=(counts[j.status]||0)+1);
+        jobs.filter(j=>!j.archived).forEach(j=>counts[j.status]=(counts[j.status]||0)+1);
         $("#rail").innerHTML = STAGES.map((s,i)=>`
     <button class="stage ${i===4?'s5':''} ${filter.stage===s.key?'active':''}" data-stage="${s.key}" style="--st:${s.color}">
       <span class="bar"></span>
@@ -821,6 +823,7 @@
       ${j.archived
             ? `<button class="miniact" data-restore="${j.id}">Restore</button>`
             : (j.fit!=null && j.fit<lowScoreThreshold ? `<button class="miniact" data-archive="${j.id}" style="color:var(--denied)">Remove</button>` : "")}
+      <button class="miniact" data-del="${j.id}" style="color:var(--denied)">Delete</button>
       <span class="byline">${esc(j.by||"")} · ${timeAgo(j.added)}</span>
     </div>
   </div>`;
@@ -832,6 +835,7 @@
         $("#showingCount").textContent = list.length;
         const archivedN = jobs.filter(j=>j.archived).length;
         $("#archivedToggle").textContent = filter.archived ? "Back to board" : `Archived (${archivedN})`;
+        $("#purgeLowBtn").classList.toggle("hidden", !filter.archived);
         $("#sort").value = filter.sort;
         const c = $("#cards");
         if(!list.length){
@@ -867,6 +871,13 @@
         $$("[data-cal]").forEach(b=>b.onclick=()=>addToCalendar(b.dataset.cal));
         $$("[data-archive]").forEach(b=>b.onclick=()=>setArchived(b.dataset.archive, true));
         $$("[data-restore]").forEach(b=>b.onclick=()=>setArchived(b.dataset.restore, false));
+        $$("[data-del]").forEach(b=>b.onclick=async ()=>{
+            const j = jobs.find(x=>x.id===b.dataset.del);
+            if(confirm(`Permanently delete "${j?.title||"this role"}"? This cannot be undone.`)){
+                await deleteJob(b.dataset.del);
+                toast("Deleted");
+            }
+        });
     }
 
     $("#q").oninput      = e=>{ filter.q=e.target.value; render(); };
@@ -1097,7 +1108,7 @@
                     title:   j.title,
                     company: j.company,
                     loc:     j.loc,
-                    notes:   (j.notes||"").slice(0,3000)
+                    notes:   (j.notes||"").slice(0,10000)
                 })
             });
             if(!res.ok) throw new Error("HTTP "+res.status);
@@ -1150,7 +1161,7 @@
                 body: JSON.stringify({
                     profile, resume,
                     title: j.title, company: j.company, loc: j.loc,
-                    notes: (j.notes||"").slice(0,3000),
+                    notes: (j.notes||"").slice(0,10000),
                     gaps:  j.feedback?.gaps || ""
                 })
             });
@@ -1471,8 +1482,22 @@
         toast(`Archived ${targets.length} low-scoring job${targets.length===1?"":"s"}`);
     }
 
+    async function purgeArchivedLowScores(){
+        const input = prompt("Permanently delete archived jobs scored under:", DEFAULT_PURGE_THRESHOLD);
+        if(input===null) return;
+        const threshold = parseInt(input);
+        if(isNaN(threshold)){ toast("Enter a valid number"); return; }
+        const targets = jobs.filter(j=>j.archived && j.fit!=null && j.fit<threshold);
+        if(!targets.length){ toast(`No archived jobs scored under ${threshold}`); return; }
+        if(!confirm(`Permanently delete ${targets.length} archived job${targets.length===1?"":"s"} scoring below ${threshold}? This cannot be undone.`)) return;
+        for(const j of targets){ await deleteJob(j.id, false); }
+        render();
+        toast(`Deleted ${targets.length} archived job${targets.length===1?"":"s"}`);
+    }
+
     $("#scoreAllBtn").onclick  = scoreAllUnscored;
     $("#removeLowBtn").onclick = removeLowScores;
+    $("#purgeLowBtn").onclick  = purgeArchivedLowScores;
 
     /* ============================================================
        MODAL CLOSE
