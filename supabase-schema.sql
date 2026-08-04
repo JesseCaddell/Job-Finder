@@ -41,7 +41,9 @@ create table if not exists settings (
                                         resume_text      text,
                                         resume_versions   jsonb default '[]',   -- [{id, filename, path, text, uploadedAt}]
                                         low_score_threshold int default 50,
-                                        feed_url  text
+                                        feed_url  text,
+    title_keywords    jsonb default '[]',   -- fetch-jobs.js title match list, editable in Settings
+    location_keywords jsonb default '[]'    -- fetch-jobs.js location match list, editable in Settings
 );
 insert into settings (id) values (1) on conflict do nothing;
 

@@ -14,8 +14,10 @@
 //   USAJOBS_EMAIL     = the email you registered with USAJOBS (required if KEY set)
 //   ADZUNA_APP_ID + ADZUNA_APP_KEY = free keys from developer.adzuna.com (optional)
 //
-// Tune these to your search:
-const TITLE_KEYWORDS = [
+// Defaults — overridden per-request by whatever the app's Settings →
+// "Feed options" sends (see handler below). These only apply when the
+// function is hit without a body (manual/legacy calls).
+const DEFAULT_TITLE_KEYWORDS = [
     "project manager","product owner","product manager","program manager",
     "release manager","release coordinator",
     "technical operations analyst","techops analyst",
@@ -26,10 +28,32 @@ const TITLE_KEYWORDS = [
     "scrum master","agile delivery lead","scrum",
     "devops engineer","solutions engineer","solution architect"
 ];
-const LOCATION_KEYWORDS = ["seattle","tacoma","bellevue","washington","wa","remote","puget"];
+const DEFAULT_LOCATION_KEYWORDS = ["washington","new york","california"];
 
-const titleMatches = t => { t=(t||"").toLowerCase(); return TITLE_KEYWORDS.some(k=>t.includes(k)); };
-const locMatches   = l => { if(!l) return true; l=l.toLowerCase(); return LOCATION_KEYWORDS.some(k=>l.includes(k)); };
+const escapeRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Word-boundary match instead of naive substring — a keyword like "wa"
+// shouldn't match inside "Waterford", and "ny" shouldn't match "company".
+const anyKeywordMatches = (text, keywords) => {
+    const t = (text||"").toLowerCase();
+    return keywords.some(k => new RegExp(`\\b${escapeRegex(k.toLowerCase())}\\b`).test(t));
+};
+
+const titleMatches = (title, keywords) => anyKeywordMatches(title, keywords);
+
+// A location is a match if it names one of the allowed states/cities, OR
+// it's an unrestricted remote posting (no state tied to it at all). Many
+// postings now list state-scoped remote eligibility, e.g.
+// "Florida; Remote - Illinois; Remote - New York; Remote - Texas" — that
+// should only pass because "New York" is named, not because "remote" is
+// present. A state-scoped remote posting naming only disallowed states
+// (e.g. "Remote - Texas") should NOT pass just because it says "remote".
+const locMatches = (loc, keywords) => {
+    if(!loc) return true;
+    if(anyKeywordMatches(loc, keywords)) return true;
+    const l = loc.toLowerCase();
+    const isStateScopedRemote = /remote\s*-\s*[a-z]/i.test(l);
+    return /\bremote\b/.test(l) && !isStateScopedRemote;
+};
 
 const DESC_CAP = 10000;
 const NAMED_ENTITIES = { amp:"&", lt:"<", gt:">", quot:'"', apos:"'", nbsp:" ",
@@ -96,7 +120,12 @@ async function adzuna(){
     }catch(e){ console.error("[fetch-jobs] adzuna failed:", e.message); return []; }
 }
 
-export async function handler(){
+export async function handler(event){
+    let body = {};
+    try{ body = JSON.parse(event?.body || "{}"); }catch(e){ /* ignore, use defaults */ }
+    const titleKeywords    = Array.isArray(body.titleKeywords) && body.titleKeywords.length ? body.titleKeywords : DEFAULT_TITLE_KEYWORDS;
+    const locationKeywords = Array.isArray(body.locationKeywords) && body.locationKeywords.length ? body.locationKeywords : DEFAULT_LOCATION_KEYWORDS;
+
     const ghBoards=(process.env.GREENHOUSE_BOARDS||"").split(",").map(s=>s.trim()).filter(Boolean);
     const lvCos=(process.env.LEVER_COMPANIES||"").split(",").map(s=>s.trim()).filter(Boolean);
 
@@ -109,7 +138,7 @@ export async function handler(){
 
     const rawCount = batches.reduce((n,b)=>n+b.length, 0);
     let jobs = batches.flat()
-        .filter(j => titleMatches(j.title) && locMatches(j.location));
+        .filter(j => titleMatches(j.title, titleKeywords) && locMatches(j.location, locationKeywords));
     console.log(`[fetch-jobs] ${rawCount} raw results from all sources, ${jobs.length} matched title/location keywords`);
 
     // dedupe by url
