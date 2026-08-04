@@ -16,6 +16,24 @@ Two modes, zero build step, one HTML file.
 
 ---
 
+## Running it locally
+
+Opening `index.html` directly works for browsing the board, but the
+Netlify functions (`Pull feed now`, `Score fit`, feed options) only exist
+once something is serving `/.netlify/functions/*`. Use Netlify's own dev
+server for that:
+
+```
+npm install
+npm run dev
+```
+
+This starts a local server (prints the URL, e.g. `http://localhost:8888`)
+serving `index.html` and all four functions together, matching what
+Netlify runs in production — no site linking required for local testing.
+
+---
+
 ## 1. Deploy to Netlify (2 min)
 
 **Drag and drop:** Netlify → "Add new site" → "Deploy manually" → drag the project folder.
@@ -64,13 +82,14 @@ Redeploy. The login screen will switch to email + password automatically.
 
 ---
 
-## 3. Set up the auto-feed (Greenhouse, Lever, USAJOBS, Adzuna)
+## 3. Set up the auto-feed (Greenhouse, Lever, Ashby, USAJOBS, Adzuna)
 
 In Netlify → Site settings → Environment variables, add whichever you have:
 
 ```
 GREENHOUSE_BOARDS = stripe,figma,databricks
-LEVER_COMPANIES   = netflix,brex,linear
+LEVER_COMPANIES   = palantir,aircall
+ASHBY_COMPANIES   = linear,notable
 USAJOBS_KEY       = <key from developer.usajobs.gov>
 USAJOBS_EMAIL     = <email you registered with USAJOBS>
 ADZUNA_APP_ID     = <from developer.adzuna.com>
@@ -78,8 +97,14 @@ ADZUNA_APP_KEY    = <from developer.adzuna.com>
 ```
 
 **Finding board tokens:** If a company uses Greenhouse, their careers page URL will contain
-`boards.greenhouse.io/COMPANY` — that last segment is the token. Same for Lever:
-`jobs.lever.co/COMPANY`. Build a list of ~15–20 target employers; quality beats volume.
+`boards.greenhouse.io/COMPANY` (or `job-boards.greenhouse.io/COMPANY`) — that last segment
+is the token. Same for Lever: `jobs.lever.co/COMPANY`. Same for Ashby: `jobs.ashbyhq.com/COMPANY`.
+Companies migrate between ATS providers, so a token that worked once can 404 later — verify
+with e.g. `curl -s https://boards-api.greenhouse.io/v1/boards/TOKEN/jobs -o /dev/null -w '%{http_code}'`
+(swap in `https://api.lever.co/v0/postings/TOKEN?mode=json` or
+`https://api.ashbyhq.com/posting-api/job-board/TOKEN` for the other two) before adding it —
+a dead token just silently contributes zero postings, which looks like "nothing to add" rather
+than an error. Build a list of ~15–20 target employers; quality beats volume.
 
 Then in the app: Settings → paste your feed URL:
 `https://YOUR-SITE.netlify.app/.netlify/functions/fetch-jobs` → Pull feed now.

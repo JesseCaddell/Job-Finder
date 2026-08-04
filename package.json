@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.html",
   "scripts": {
+    "dev": "netlify dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "netlify-cli": "^27.0.0"
+  }
 }
