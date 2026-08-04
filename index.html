@@ -84,12 +84,18 @@
         .btn:disabled{opacity:.45;cursor:not-allowed}
 
         /* ---- tag chips ---- */
-        .tagrow{display:flex;gap:7px;flex-wrap:wrap;margin:-6px 0 18px}
+        .tagrow{display:flex;gap:7px;flex-wrap:wrap}
         .tagchip{font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);transition:.12s}
         .tagchip:hover{border-color:var(--ink-faint)}
         .tagchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 
-        /* ---- removable keyword chips (Settings → Feed options) ---- */
+        /* ---- feed box (Pull feed + its options, its own category) ---- */
+        .feedbox{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:18px;background:var(--card)}
+        .feedbox-head{display:flex;align-items:center;gap:10px}
+        .feedoptions{margin-top:12px;padding-top:12px;border-top:1px solid var(--line-soft)}
+        .feedoptions .setrow{padding:10px 0}
+
+        /* ---- removable keyword chips (feed options) ---- */
         .kwrow{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
         .kwchip{display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 6px 5px 11px;border-radius:999px;background:var(--accent-tint);color:var(--accent-press);font-weight:500}
         .kwchip button{border:none;background:none;color:inherit;opacity:.6;cursor:pointer;font-size:14px;line-height:1;padding:0 3px}
@@ -261,6 +267,36 @@
     <div class="wrap">
         <div class="rail" id="rail"></div>
         <div class="railhint">Tap a stage to filter · showing <span id="showingCount">0</span> roles · <button class="linkbtn" id="archivedToggle" style="font-size:12px"></button></div>
+
+        <!-- Feed: pulling new postings acts on the whole board, kept separate from per-job actions below -->
+        <div class="feedbox">
+            <div class="feedbox-head">
+                <button class="btn ghost" id="pullFeedBtn">⟳ Pull feed now</button>
+                <button class="linkbtn" id="feedOptionsToggle">Feed options ▾</button>
+            </div>
+            <div class="feedoptions hidden" id="feedOptionsPanel">
+                <div class="setrow">
+                    <div class="lbl">Title keywords</div>
+                    <div class="desc">"Pull feed now" only pulls in postings whose title matches one of these.</div>
+                    <div class="kwrow" id="s_titleKw"></div>
+                    <div class="kwadd">
+                        <input id="s_newTitleKw" placeholder="Add a title keyword, e.g. business analyst" />
+                        <button class="btn ghost sm" id="s_addTitleKw" type="button">Add</button>
+                    </div>
+                </div>
+                <div class="setrow" style="border-bottom:none">
+                    <div class="lbl">Location keywords</div>
+                    <div class="desc">Postings must name one of these states/cities — or be unrestricted "Remote" with no state tied to it. State-scoped remote listings (e.g. "Remote - Texas") only pass if that state is listed here.</div>
+                    <div class="kwrow" id="s_locationKw"></div>
+                    <div class="kwadd">
+                        <input id="s_newLocationKw" placeholder="Add a state or city, e.g. oregon" />
+                        <button class="btn ghost sm" id="s_addLocationKw" type="button">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Browse: search, sort, and filters live on one line -->
         <div class="toolbar">
             <div class="search">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A91A0" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -272,13 +308,23 @@
                 <option value="company">Company A–Z</option>
                 <option value="title">Title A–Z</option>
             </select>
-            <button class="btn ghost" id="pullFeedBtn">⟳ Pull feed now</button>
+            <div class="tagrow" id="tagrow"></div>
+        </div>
+
+        <!-- Board actions: operate on the jobs already on the board -->
+        <div class="toolbar">
             <button class="btn ghost" id="scoreAllBtn">✦ Score all</button>
             <button class="btn ghost" id="removeLowBtn">Remove low scores</button>
+            <button class="btn ghost" id="archiveOldBtn">Archive postings 30+ days old</button>
             <button class="btn ghost hidden" id="purgeLowBtn">🗑 Remove scored under X</button>
+            <select id="archDeleteScope" class="hidden">
+                <option value="30">older than 30 days</option>
+                <option value="all">all</option>
+            </select>
+            <button class="btn ghost hidden" id="deleteArchivedBtn">🗑 Delete archived</button>
             <button class="btn" id="addBtn">+ Add a job</button>
         </div>
-        <div class="tagrow" id="tagrow"></div>
+
         <div class="cards" id="cards"></div>
     </div>
 </div>
@@ -360,28 +406,6 @@
                     <div class="lbl">Low score threshold</div>
                     <div class="desc">Scored jobs below this are eligible to be removed from the main feed.</div>
                     <input id="s_lowscore" type="number" min="0" max="100" style="width:100px;margin-top:8px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;outline:none" />
-                </div>
-            </div>
-
-            <!-- Feed options: title/location keywords sent to fetch-jobs on demand -->
-            <div class="setgroup">
-                <div class="setrow">
-                    <div class="lbl">Feed title keywords</div>
-                    <div class="desc">"Pull feed now" only pulls in postings whose title matches one of these.</div>
-                    <div class="kwrow" id="s_titleKw"></div>
-                    <div class="kwadd">
-                        <input id="s_newTitleKw" placeholder="Add a title keyword, e.g. business analyst" />
-                        <button class="btn ghost sm" id="s_addTitleKw" type="button">Add</button>
-                    </div>
-                </div>
-                <div class="setrow">
-                    <div class="lbl">Feed location keywords</div>
-                    <div class="desc">Postings must name one of these states/cities — or be unrestricted "Remote" with no state tied to it. State-scoped remote listings (e.g. "Remote - Texas") only pass if that state is listed here.</div>
-                    <div class="kwrow" id="s_locationKw"></div>
-                    <div class="kwadd">
-                        <input id="s_newLocationKw" placeholder="Add a state or city, e.g. oregon" />
-                        <button class="btn ghost sm" id="s_addLocationKw" type="button">Add</button>
-                    </div>
                 </div>
             </div>
 
@@ -880,6 +904,8 @@
         const archivedN = jobs.filter(j=>j.archived).length;
         $("#archivedToggle").textContent = filter.archived ? "Back to board" : `Archived (${archivedN})`;
         $("#purgeLowBtn").classList.toggle("hidden", !filter.archived);
+        $("#archDeleteScope").classList.toggle("hidden", !filter.archived);
+        $("#deleteArchivedBtn").classList.toggle("hidden", !filter.archived);
         $("#sort").value = filter.sort;
         const c = $("#cards");
         if(!list.length){
@@ -1359,44 +1385,59 @@
     }
 
     /* ============================================================
-       SETTINGS
+       FEED OPTIONS — title/location keywords for "Pull feed now".
+       Lives in its own collapsible panel on the main page (not
+       Settings), since pulling the feed acts on the whole board.
+       Auto-saves on every add/remove — no separate Save button.
        ============================================================ */
-    // In-memory copies edited while the Settings modal is open, committed
-    // to Settings on "Save settings" — same pattern as every other field.
-    let editTitleKw = [];
-    let editLocationKw = [];
+    let feedTitleKw = [];
+    let feedLocationKw = [];
+    let feedOptionsLoaded = false;
 
-    function renderKwList(containerId, arr){
+    function renderKwList(containerId, arr, settingsKey){
         $(containerId).innerHTML = arr.map((k,i)=>
             '<span class="kwchip">'+esc(k)+'<button type="button" data-kwdel="'+i+'">×</button></span>'
         ).join("");
-        $$(`${containerId} [data-kwdel]`).forEach(b=>b.onclick=()=>{
+        $$(`${containerId} [data-kwdel]`).forEach(b=>b.onclick=async ()=>{
             arr.splice(+b.dataset.kwdel,1);
-            renderKwList(containerId, arr);
+            renderKwList(containerId, arr, settingsKey);
+            await saveSettings({ [settingsKey]: arr });
         });
     }
-    function addKw(arr, containerId, inputId){
+    async function addKw(arr, containerId, inputId, settingsKey){
         const inp = $(inputId);
         const v = inp.value.trim().toLowerCase();
         inp.value = "";
         if(!v || arr.includes(v)) return;
         arr.push(v);
-        renderKwList(containerId, arr);
+        renderKwList(containerId, arr, settingsKey);
+        await saveSettings({ [settingsKey]: arr });
     }
-    $("#s_addTitleKw").onclick = ()=> addKw(editTitleKw, "#s_titleKw", "#s_newTitleKw");
-    $("#s_addLocationKw").onclick = ()=> addKw(editLocationKw, "#s_locationKw", "#s_newLocationKw");
-    $("#s_newTitleKw").onkeydown = e=>{ if(e.key==="Enter"){ e.preventDefault(); addKw(editTitleKw, "#s_titleKw", "#s_newTitleKw"); } };
-    $("#s_newLocationKw").onkeydown = e=>{ if(e.key==="Enter"){ e.preventDefault(); addKw(editLocationKw, "#s_locationKw", "#s_newLocationKw"); } };
+    $("#s_addTitleKw").onclick = ()=> addKw(feedTitleKw, "#s_titleKw", "#s_newTitleKw", "title_keywords");
+    $("#s_addLocationKw").onclick = ()=> addKw(feedLocationKw, "#s_locationKw", "#s_newLocationKw", "location_keywords");
+    $("#s_newTitleKw").onkeydown = e=>{ if(e.key==="Enter"){ e.preventDefault(); addKw(feedTitleKw, "#s_titleKw", "#s_newTitleKw", "title_keywords"); } };
+    $("#s_newLocationKw").onkeydown = e=>{ if(e.key==="Enter"){ e.preventDefault(); addKw(feedLocationKw, "#s_locationKw", "#s_newLocationKw", "location_keywords"); } };
 
+    $("#feedOptionsToggle").onclick = async ()=>{
+        const panel = $("#feedOptionsPanel");
+        panel.classList.toggle("hidden");
+        if(panel.classList.contains("hidden") || feedOptionsLoaded) return;
+        const settings = await loadSettings();
+        feedTitleKw    = [...(settings.title_keywords?.length    ? settings.title_keywords    : DEFAULT_TITLE_KEYWORDS)];
+        feedLocationKw = [...(settings.location_keywords?.length ? settings.location_keywords : DEFAULT_LOCATION_KEYWORDS)];
+        renderKwList("#s_titleKw", feedTitleKw, "title_keywords");
+        renderKwList("#s_locationKw", feedLocationKw, "location_keywords");
+        feedOptionsLoaded = true;
+    };
+
+    /* ============================================================
+       SETTINGS
+       ============================================================ */
     $("#openSettings").onclick = async ()=>{
         const settings = await loadSettings();
         $("#s_profile").value = settings.profile || DEFAULT_PROFILE;
         $("#s_resume").value  = settings.resume  || "";
         $("#s_lowscore").value = settings.low_score_threshold ?? DEFAULT_LOW_SCORE_THRESHOLD;
-        editTitleKw    = [...(settings.title_keywords?.length    ? settings.title_keywords    : DEFAULT_TITLE_KEYWORDS)];
-        editLocationKw = [...(settings.location_keywords?.length ? settings.location_keywords : DEFAULT_LOCATION_KEYWORDS)];
-        renderKwList("#s_titleKw", editTitleKw);
-        renderKwList("#s_locationKw", editLocationKw);
         if(!SHARED_MODE){
             $("#s_localGroup").classList.remove("hidden");
             $("#s_code").value="";
@@ -1446,9 +1487,7 @@
         const patch = {
             profile:  $("#s_profile").value.trim(),
             resume:   $("#s_resume").value.trim(),
-            low_score_threshold: Math.max(0, Math.min(100, parseInt($("#s_lowscore").value) || DEFAULT_LOW_SCORE_THRESHOLD)),
-            title_keywords: editTitleKw,
-            location_keywords: editLocationKw
+            low_score_threshold: Math.max(0, Math.min(100, parseInt($("#s_lowscore").value) || DEFAULT_LOW_SCORE_THRESHOLD))
         };
         await saveSettings(patch);
         lowScoreThreshold = patch.low_score_threshold;
@@ -1579,9 +1618,35 @@
         toast(`Deleted ${targets.length} archived job${targets.length===1?"":"s"}`);
     }
 
-    $("#scoreAllBtn").onclick  = scoreAllUnscored;
-    $("#removeLowBtn").onclick = removeLowScores;
-    $("#purgeLowBtn").onclick  = purgeArchivedLowScores;
+    const OLD_POSTING_MS = 30*24*60*60*1000;
+
+    async function archiveOldPostings(){
+        const cutoff = Date.now() - OLD_POSTING_MS;
+        const targets = jobs.filter(j=>!j.archived && j.status==="new" && j.added<cutoff);
+        if(!targets.length){ toast("No untouched postings older than 30 days"); return; }
+        if(!confirm(`Archive ${targets.length} untouched posting${targets.length===1?"":"s"} added more than 30 days ago?`)) return;
+        for(const j of targets){ j.archived = true; await upsertJob(j); }
+        render();
+        toast(`Archived ${targets.length} old posting${targets.length===1?"":"s"}`);
+    }
+
+    async function deleteArchivedJobs(){
+        const scope = $("#archDeleteScope").value; // "30" | "all"
+        const cutoff = Date.now() - OLD_POSTING_MS;
+        const targets = jobs.filter(j=>j.archived && (scope==="all" || j.added<cutoff));
+        if(!targets.length){ toast("No archived jobs to delete"); return; }
+        const scopeLabel = scope==="all" ? "" : " older than 30 days";
+        if(!confirm(`Permanently delete ${targets.length} archived job${targets.length===1?"":"s"}${scopeLabel}? This cannot be undone.`)) return;
+        for(const j of targets){ await deleteJob(j.id, false); }
+        render();
+        toast(`Deleted ${targets.length} archived job${targets.length===1?"":"s"}`);
+    }
+
+    $("#scoreAllBtn").onclick     = scoreAllUnscored;
+    $("#removeLowBtn").onclick    = removeLowScores;
+    $("#purgeLowBtn").onclick     = purgeArchivedLowScores;
+    $("#archiveOldBtn").onclick   = archiveOldPostings;
+    $("#deleteArchivedBtn").onclick = deleteArchivedJobs;
 
     /* ============================================================
        MODAL CLOSE
