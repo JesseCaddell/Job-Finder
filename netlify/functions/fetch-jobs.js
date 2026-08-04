@@ -56,6 +56,29 @@ const locMatches = (loc, keywords) => {
     return /\bremote\b/.test(l) && !isStateScopedRemote;
 };
 
+// Excludes postings whose description states a minimum experience
+// requirement above this many years. A posting that doesn't mention
+// years of experience at all is left in — silence isn't evidence it's
+// senior. This is a text heuristic, not exact: it looks for the
+// standard phrasings ("6+ years", "6-8 years of experience", "8 years
+// of experience") and takes the lowest minimum it finds.
+const MAX_YEARS_EXPERIENCE = 7;
+const YEARS_RE = /(\d{1,2})\+\s*years?|(\d{1,2})\s*(?:-|to)\s*\d{1,2}\s*years?(?:\s+[a-z]+){0,3}?\s+experience|(\d{1,2})\s*years?(?:\s+[a-z]+){0,3}?\s+experience/gi;
+function minYearsRequired(description){
+    if(!description) return null;
+    let min = null, m;
+    YEARS_RE.lastIndex = 0;
+    while((m = YEARS_RE.exec(description))){
+        const n = parseInt(m[1] ?? m[2] ?? m[3], 10);
+        if(!isNaN(n) && (min===null || n<min)) min = n;
+    }
+    return min;
+}
+const withinExperienceCap = description => {
+    const min = minYearsRequired(description);
+    return min===null || min<=MAX_YEARS_EXPERIENCE;
+};
+
 const DESC_CAP = 10000;
 const NAMED_ENTITIES = { amp:"&", lt:"<", gt:">", quot:'"', apos:"'", nbsp:" ",
     rsquo:"’", lsquo:"‘", rdquo:"”", ldquo:"“", ndash:"–", mdash:"—", hellip:"…" };
@@ -152,7 +175,7 @@ export async function handler(event){
 
     const rawCount = batches.reduce((n,b)=>n+b.length, 0);
     let jobs = batches.flat()
-        .filter(j => titleMatches(j.title, titleKeywords) && locMatches(j.location, locationKeywords));
+        .filter(j => titleMatches(j.title, titleKeywords) && locMatches(j.location, locationKeywords) && withinExperienceCap(j.description));
     console.log(`[fetch-jobs] ${rawCount} raw results from all sources, ${jobs.length} matched title/location keywords`);
 
     // dedupe by url
