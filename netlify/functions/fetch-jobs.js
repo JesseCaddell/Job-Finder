@@ -15,7 +15,17 @@
 //   ADZUNA_APP_ID + ADZUNA_APP_KEY = free keys from developer.adzuna.com (optional)
 //
 // Tune these to your search:
-const TITLE_KEYWORDS = ["project manager","technical project manager","product owner","product manager","analyst","program manager","scrum"];
+const TITLE_KEYWORDS = [
+    "project manager","product owner","product manager","program manager",
+    "release manager","release coordinator",
+    "technical operations analyst","techops analyst",
+    "technical operations specialist","techops specialist",
+    "engineering operations coordinator","engops coordinator",
+    "systems analyst","technical systems analyst",
+    "implementation consultant","technical consultant",
+    "scrum master","agile delivery lead","scrum",
+    "devops engineer","solutions engineer","solution architect"
+];
 const LOCATION_KEYWORDS = ["seattle","tacoma","bellevue","washington","wa","remote","puget"];
 
 const titleMatches = t => { t=(t||"").toLowerCase(); return TITLE_KEYWORDS.some(k=>t.includes(k)); };
