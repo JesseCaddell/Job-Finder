@@ -10,6 +10,7 @@
 // Configure via Netlify environment variables (Site settings → Environment):
 //   GREENHOUSE_BOARDS = comma list of board tokens, e.g. "stripe,airbnb,figma"
 //   LEVER_COMPANIES   = comma list of lever slugs, e.g. "netflix,spotify"
+//   ASHBY_COMPANIES   = comma list of Ashby job-board slugs, e.g. "linear,notion"
 //   USAJOBS_KEY       = your key from developer.usajobs.gov (optional)
 //   USAJOBS_EMAIL     = the email you registered with USAJOBS (required if KEY set)
 //   ADZUNA_APP_ID + ADZUNA_APP_KEY = free keys from developer.adzuna.com (optional)
@@ -88,6 +89,17 @@ async function lever(slug){
         }));
     }catch(e){ console.error("[fetch-jobs] lever("+slug+") failed:", e.message); return []; }
 }
+async function ashby(slug){
+    try{
+        const r = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${slug}`);
+        const d = await r.json();
+        return (d.jobs||[]).filter(j=>j.isListed!==false).map(j=>({
+            title:j.title, company:slug, location:j.location||"",
+            url:j.jobUrl, source:"Ashby", postedAt:j.publishedAt||null,
+            description:decodeEntities(j.descriptionHtml||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,DESC_CAP)
+        }));
+    }catch(e){ console.error("[fetch-jobs] ashby("+slug+") failed:", e.message); return []; }
+}
 async function usajobs(){
     const key=process.env.USAJOBS_KEY, email=process.env.USAJOBS_EMAIL;
     if(!key||!email) return [];
@@ -128,10 +140,12 @@ export async function handler(event){
 
     const ghBoards=(process.env.GREENHOUSE_BOARDS||"").split(",").map(s=>s.trim()).filter(Boolean);
     const lvCos=(process.env.LEVER_COMPANIES||"").split(",").map(s=>s.trim()).filter(Boolean);
+    const ashbyCos=(process.env.ASHBY_COMPANIES||"").split(",").map(s=>s.trim()).filter(Boolean);
 
     const batches = await Promise.all([
         ...ghBoards.map(greenhouse),
         ...lvCos.map(lever),
+        ...ashbyCos.map(ashby),
         usajobs(),
         adzuna()
     ]);
