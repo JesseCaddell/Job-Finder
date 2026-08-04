@@ -20,7 +20,7 @@ Two modes, zero build step, one HTML file.
 
 **Drag and drop:** Netlify → "Add new site" → "Deploy manually" → drag the project folder.
 
-**Or Git (needed for the auto-feed function + daily schedule):**
+**Or Git (needed for the auto-feed function):**
 Push this folder to GitHub → Netlify → "Import from Git" → deploy.
 `netlify.toml` is already configured.
 
@@ -83,8 +83,6 @@ ADZUNA_APP_KEY    = <from developer.adzuna.com>
 
 Then in the app: Settings → paste your feed URL:
 `https://YOUR-SITE.netlify.app/.netlify/functions/fetch-jobs` → Pull feed now.
-
-`netlify.toml` also schedules this automatically once a day.
 
 Edit `TITLE_KEYWORDS` and `LOCATION_KEYWORDS` in `fetch-jobs.js` to tune what comes in.
 
@@ -164,7 +162,7 @@ Redeploy. The "Score fit" button on every card is now live.
 ```
 the-pipeline/
 ├── index.html                      ← the entire app (no build step)
-├── netlify.toml                    ← functions dir + daily schedule
+├── netlify.toml                    ← functions dir
 ├── supabase-schema.sql             ← run once in Supabase SQL editor
 ├── README.md                       ← this file
 └── netlify/
