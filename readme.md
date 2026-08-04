@@ -16,6 +16,24 @@ Two modes, zero build step, one HTML file.
 
 ---
 
+## Running it locally
+
+Opening `index.html` directly works for browsing the board, but the
+Netlify functions (`Pull feed now`, `Score fit`, feed options) only exist
+once something is serving `/.netlify/functions/*`. Use Netlify's own dev
+server for that:
+
+```
+npm install
+npm run dev
+```
+
+This starts a local server (prints the URL, e.g. `http://localhost:8888`)
+serving `index.html` and all four functions together, matching what
+Netlify runs in production — no site linking required for local testing.
+
+---
+
 ## 1. Deploy to Netlify (2 min)
 
 **Drag and drop:** Netlify → "Add new site" → "Deploy manually" → drag the project folder.

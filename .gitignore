@@ -6,6 +6,7 @@
 
 # ── Netlify local dev ──────────────────────────────────────────
 .netlify/
+deno.lock
 
 # ── Node (if you ever add local tooling) ──────────────────────
 node_modules/
