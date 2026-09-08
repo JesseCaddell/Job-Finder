@@ -19,7 +19,7 @@
 // "Feed options" sends (see handler below). These only apply when the
 // function is hit without a body (manual/legacy calls).
 const DEFAULT_TITLE_KEYWORDS = [
-    "project manager","product owner","product manager","program manager",
+    "project manager","technical project manager","product owner","product manager","program manager",
     "release manager","release coordinator",
     "technical operations analyst","techops analyst",
     "technical operations specialist","techops specialist",
@@ -27,7 +27,12 @@ const DEFAULT_TITLE_KEYWORDS = [
     "systems analyst","technical systems analyst",
     "implementation consultant","technical consultant",
     "scrum master","agile delivery lead","scrum",
-    "devops engineer","solutions engineer","solution architect"
+    "devops engineer","solutions engineer","solution architect",
+    "junior software engineer","software engineer i","associate software engineer",
+    "ai-native","automation engineer","integration engineer",
+    "developer experience engineer","dx engineer","internal tools engineer",
+    "platform engineer","applied ai engineer","forward deployed engineer",
+    "full-stack engineer","full stack engineer","qa engineer","test automation engineer"
 ];
 const DEFAULT_LOCATION_KEYWORDS = ["washington","new york","california"];
 
@@ -62,7 +67,7 @@ const locMatches = (loc, keywords) => {
 // senior. This is a text heuristic, not exact: it looks for the
 // standard phrasings ("6+ years", "6-8 years of experience", "8 years
 // of experience") and takes the lowest minimum it finds.
-const MAX_YEARS_EXPERIENCE = 7;
+const MAX_YEARS_EXPERIENCE = 6;
 const YEARS_RE = /(\d{1,2})\+\s*years?|(\d{1,2})\s*(?:-|to)\s*\d{1,2}\s*years?(?:\s+[a-z]+){0,3}?\s+experience|(\d{1,2})\s*years?(?:\s+[a-z]+){0,3}?\s+experience/gi;
 function minYearsRequired(description){
     if(!description) return null;
