@@ -82,3 +82,17 @@ USAJOBS_EMAIL = <the email you registered with USAJOBS>
 
 Redeploy (or trigger a redeploy from the same screen) so the function picks
 them up. USAJOBS results will appear on the next "Pull feed now" click.
+
+## Lock down AI endpoints + sign-ups (sharing with other devs)
+
+`score-fit` and `improve-resume` now require a Supabase session token in
+shared mode. No new env vars — just redeploy so Netlify bundles
+`netlify/lib/verify-user.js` with the functions. After the deploy, sign out
+and back in once if scoring returns 401.
+
+1. **Disable public sign-ups.** Supabase dashboard → Authentication →
+   Sign In / Providers → turn off "Allow new users to sign up". Add users
+   manually from Authentication → Users instead.
+
+2. **Set an Anthropic spend limit.** console.anthropic.com → Settings →
+   Limits → set a monthly cap.

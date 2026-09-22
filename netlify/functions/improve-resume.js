@@ -4,16 +4,26 @@
 // Called manually when the user clicks "Draft improvements" on a job
 // scoring 60%+. Never runs automatically.
 //
-// Model: claude-haiku-4-5 (fastest, cheapest — plenty for structured feedback)
+// Model: ANTHROPIC_MODEL env var, default claude-haiku-4-5 (fastest, cheapest — plenty for structured feedback)
 // Max tokens: 500 (a few paste-ready resume edits need ~250; 500 is a safe ceiling)
 //
 // Netlify env var required:
 //   ANTHROPIC_API_KEY  — from console.anthropic.com
+// Optional:
+//   ANTHROPIC_MODEL    — override the model, e.g. claude-sonnet-5
+//
+// In shared mode the caller must send a Supabase session token
+// (see netlify/lib/verify-user.js).
+
+import { verifyUser } from "../lib/verify-user.js";
 
 export async function handler(event) {
     if (event.httpMethod !== "POST") {
         return { statusCode: 405, body: "Method Not Allowed" };
     }
+
+    const denied = await verifyUser(event);
+    if (denied) return denied;
 
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) {
@@ -63,7 +73,7 @@ markdown, NO explanation outside the JSON:
                 "anthropic-version": "2023-06-01"
             },
             body: JSON.stringify({
-                model:      "claude-haiku-4-5",
+                model:      process.env.ANTHROPIC_MODEL || "claude-haiku-4-5",
                 max_tokens: 500,
                 messages:   [{ role: "user", content: prompt }]
             })
