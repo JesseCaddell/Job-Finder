@@ -266,7 +266,7 @@
 
     <div class="wrap">
         <div class="rail" id="rail"></div>
-        <div class="railhint">Tap a stage to filter · showing <span id="showingCount">0</span> roles · <button class="linkbtn" id="archivedToggle" style="font-size:12px"></button></div>
+        <div class="railhint">Tap a stage to switch views, tap again to show all · showing <span id="showingCount">0</span> roles · <button class="linkbtn" id="archivedToggle" style="font-size:12px"></button></div>
 
         <!-- Feed: pulling new postings acts on the whole board, kept separate from per-job actions below -->
         <div class="feedbox">
@@ -315,6 +315,8 @@
         <div class="toolbar">
             <button class="btn ghost" id="scoreAllBtn">✦ Score all</button>
             <button class="btn ghost" id="removeLowBtn">Remove low scores</button>
+            <button class="btn ghost" id="removeSeniorBtn">Remove Sr/Senior roles</button>
+            <button class="btn ghost" id="removeKeywordBtn">Remove by title keyword…</button>
             <button class="btn ghost" id="archiveOldBtn">Archive postings 30+ days old</button>
             <button class="btn ghost hidden" id="purgeLowBtn">🗑 Remove scored under X</button>
             <select id="archDeleteScope" class="hidden">
@@ -500,6 +502,13 @@
         { key:"denied",    label:"Denied",    color:"var(--denied)" },
     ];
     const stageMeta = k => STAGES.find(s=>s.key===k) || STAGES[0];
+    // Jobs you've categorized past "new" should never be swept up by score-based
+    // cleanup (per-job Remove button, "Remove low scores", archive purge, or the
+    // feed's repost-revival) — only untouched "new" postings are fair game.
+    const isProtectedStatus = j => j.status==="applied" || j.status==="interview" || j.status==="offer" || j.status==="denied";
+    // Every time the "Applied" stage was set counts as one application attempt
+    // (reapplying after a Denied shows up as a second entry) — drives the card badge.
+    const attemptCount = j => (j.history||[]).filter(h=>h.s==="applied").length;
 
     /* ─── Local storage shim ─── */
     const mem = {};
@@ -824,7 +833,11 @@
     /* ============================================================
        RENDER
        ============================================================ */
-    let filter = { stage:null, tag:null, q:"", sort:"added", archived:false };
+    // The board defaults to showing only "New" — the rail tiles are the actual
+    // per-stage destinations. Without this, every status lives in one mixed
+    // list and changing a job's status never visibly moves it anywhere.
+    const DEFAULT_BOARD_STAGE = "new";
+    let filter = { stage:DEFAULT_BOARD_STAGE, tag:null, q:"", sort:"added", archived:false };
 
     function visibleJobs(){
         let list = jobs.filter(j=>!!j.archived === filter.archived);
@@ -845,7 +858,10 @@
 
     function renderRail(){
         const counts = {}; STAGES.forEach(s=>counts[s.key]=0);
-        jobs.filter(j=>!j.archived).forEach(j=>counts[j.status]=(counts[j.status]||0)+1);
+        // Scope counts to whatever view is showing (board vs. archived) — visibleJobs()
+        // applies filter.stage against that same scope, so the two must agree or the
+        // rail shows one count while the stage click filters a different set of jobs.
+        jobs.filter(j=>!!j.archived === filter.archived).forEach(j=>counts[j.status]=(counts[j.status]||0)+1);
         $("#rail").innerHTML = STAGES.map((s,i)=>`
     <button class="stage ${i===4?'s5':''} ${filter.stage===s.key?'active':''}" data-stage="${s.key}" style="--st:${s.color}">
       <span class="bar"></span>
@@ -891,6 +907,7 @@
       <select class="statussel" data-status="${j.id}">
         ${STAGES.map(s=>`<option value="${s.key}" ${s.key===j.status?'selected':''}>${s.label}</option>`).join("")}
       </select>
+      ${attemptCount(j)>0?`<button class="miniact" data-open="${j.id}" title="Application history" style="opacity:.75">↻ ${attemptCount(j)}× applied</button>`:""}
       ${j.status==="interview"?`<button class="miniact" data-cal="${j.id}">＋ Calendar</button>`:""}
       <button class="miniact" data-open="${j.id}">Details</button>
       ${j.archived
@@ -914,8 +931,13 @@
         $("#sort").value = filter.sort;
         const c = $("#cards");
         if(!list.length){
+            const stageOnlyFilter = filter.stage && !filter.tag && !filter.q;
+            const emptyMsg = filter.archived ? "No archived jobs."
+                : !jobs.length ? "Paste a job link to get started — or wire up the auto-feed in Settings."
+                : stageOnlyFilter ? `No ${stageMeta(filter.stage).label} roles right now — tap a stage above to see others.`
+                : "No roles match this filter.";
             c.innerHTML = `<div class="empty"><span class="serif">Nothing here yet.</span>
-      ${filter.archived ? "No archived jobs." : (jobs.length ? "No roles match this filter." : "Paste a job link to get started — or wire up the auto-feed in Settings.")}
+      ${emptyMsg}
       ${filter.archived ? "" : '<div style="margin-top:16px"><button class="btn" id="emptyAdd">+ Add your first job</button></div>'}</div>`;
             const ea=$("#emptyAdd"); if(ea) ea.onclick=openAdd;
         } else {
@@ -940,6 +962,9 @@
             j.history.push({s:sel.value, t:Date.now(), by:who});
             await upsertJob(j);
             render();
+            // The board only shows one stage at a time now, so a status change
+            // can make the card vanish from view — say where it went.
+            toast(`Moved to ${stageMeta(sel.value).label}`);
         });
         $$("[data-score]").forEach(b=>b.onclick=()=>scoreFit(b.dataset.score));
         $$("[data-open]").forEach(b=>b.onclick=()=>openDetail(b.dataset.open));
@@ -958,7 +983,13 @@
     $("#q").oninput      = e=>{ filter.q=e.target.value; render(); };
     $("#sort").onchange  = e=>{ filter.sort=e.target.value; render(); };
     $("#addBtn").onclick = openAdd;
-    $("#archivedToggle").onclick = ()=>{ filter.archived=!filter.archived; filter.stage=null; render(); };
+    $("#archivedToggle").onclick = ()=>{
+        filter.archived = !filter.archived;
+        // Archived view: show every stage mixed (it's a review/restore list, not a workflow).
+        // Board view: land back on New, not the old "everything mixed" default.
+        filter.stage = filter.archived ? null : DEFAULT_BOARD_STAGE;
+        render();
+    };
 
     /* ============================================================
        ADD / EDIT
@@ -1539,9 +1570,11 @@
                 if(existing){
                     // Same posting, unless the source reports a newer posted date —
                     // that's a repost, so bring it back for another look.
+                    // Never reset a job you've already categorized past "new" (applied, interviewing,
+                    // offer, or denied) — a repost of the same listing shouldn't wipe your tracked progress.
                     const newPosted=it.postedAt?new Date(it.postedAt).getTime():null;
                     const oldPosted=existing.postedAt?new Date(existing.postedAt).getTime():null;
-                    if(newPosted && oldPosted && newPosted>oldPosted){
+                    if(newPosted && oldPosted && newPosted>oldPosted && !isProtectedStatus(existing)){
                         if(existing.fit!=null){
                             existing.history=existing.history||[];
                             existing.history.push({
@@ -1602,7 +1635,7 @@
     }
 
     async function removeLowScores(){
-        const targets = jobs.filter(j=>!j.archived && j.fit!=null && j.fit<lowScoreThreshold);
+        const targets = jobs.filter(j=>!j.archived && j.fit!=null && j.fit<lowScoreThreshold && !isProtectedStatus(j));
         if(!targets.length){ toast("No low-scoring jobs to remove"); return; }
         if(!confirm(`Archive ${targets.length} job${targets.length===1?"":"s"} scoring below ${lowScoreThreshold}?`)) return;
         for(const j of targets){ j.archived = true; await upsertJob(j); }
@@ -1610,17 +1643,45 @@
         toast(`Archived ${targets.length} low-scoring job${targets.length===1?"":"s"}`);
     }
 
+    // Shared by "Remove Sr/Senior roles" and "Remove by title keyword" — archives
+    // (never permanently deletes) so the pull-feed dedupe still sees the job,
+    // and never touches a job you've categorized past "new" (applied/interview/offer/denied).
+    async function removeMatchingTitles(matchLabel, titleMatches){
+        const targets = jobs.filter(j=>!j.archived && !isProtectedStatus(j) && titleMatches(j.title||""));
+        if(!targets.length){ toast(`No jobs match ${matchLabel}`); return; }
+        if(!confirm(`Archive ${targets.length} job${targets.length===1?"":"s"} matching ${matchLabel}?`)) return;
+        for(const j of targets){ j.archived = true; await upsertJob(j); }
+        render();
+        toast(`Archived ${targets.length} job${targets.length===1?"":"s"}`);
+    }
+
+    async function removeSeniorRoles(){
+        const re = /\b(sr\.?|senior)\b/i;
+        await removeMatchingTitles("Sr./Senior", title => re.test(title));
+    }
+
+    async function removeByTitleKeyword(){
+        const input = prompt("Archive jobs whose title contains any of these keywords (comma-separated):");
+        if(input===null) return;
+        const kws = input.split(",").map(k=>k.trim().toLowerCase()).filter(Boolean);
+        if(!kws.length){ toast("Enter at least one keyword"); return; }
+        await removeMatchingTitles(kws.join(", "), title => kws.some(k=>title.toLowerCase().includes(k)));
+    }
+
     async function purgeArchivedLowScores(){
         const input = prompt("Permanently delete archived jobs scored under:", DEFAULT_PURGE_THRESHOLD);
         if(input===null) return;
         const threshold = parseInt(input);
         if(isNaN(threshold)){ toast("Enter a valid number"); return; }
-        const targets = jobs.filter(j=>j.archived && j.fit!=null && j.fit<threshold);
-        if(!targets.length){ toast(`No archived jobs scored under ${threshold}`); return; }
-        if(!confirm(`Permanently delete ${targets.length} archived job${targets.length===1?"":"s"} scoring below ${threshold}? This cannot be undone.`)) return;
+        const matching = jobs.filter(j=>j.archived && j.fit!=null && j.fit<threshold);
+        const targets = matching.filter(j=>!isProtectedStatus(j));
+        const kept = matching.length - targets.length;
+        const keptNote = kept ? ` (kept ${kept} categorized applied/interview/offer/denied)` : "";
+        if(!targets.length){ toast(kept ? `Nothing to delete${keptNote}` : `No archived jobs scored under ${threshold}`); return; }
+        if(!confirm(`Permanently delete ${targets.length} archived job${targets.length===1?"":"s"} scoring below ${threshold}?${keptNote} This cannot be undone.`)) return;
         for(const j of targets){ await deleteJob(j.id, false); }
         render();
-        toast(`Deleted ${targets.length} archived job${targets.length===1?"":"s"}`);
+        toast(`Deleted ${targets.length} archived job${targets.length===1?"":"s"}${keptNote}`);
     }
 
     const OLD_POSTING_MS = 30*24*60*60*1000;
@@ -1638,17 +1699,22 @@
     async function deleteArchivedJobs(){
         const scope = $("#archDeleteScope").value; // "30" | "all"
         const cutoff = Date.now() - OLD_POSTING_MS;
-        const targets = jobs.filter(j=>j.archived && (scope==="all" || j.added<cutoff));
-        if(!targets.length){ toast("No archived jobs to delete"); return; }
+        const matching = jobs.filter(j=>j.archived && (scope==="all" || j.added<cutoff));
+        const targets = matching.filter(j=>!isProtectedStatus(j));
+        const kept = matching.length - targets.length;
+        const keptNote = kept ? ` (kept ${kept} categorized applied/interview/offer/denied)` : "";
         const scopeLabel = scope==="all" ? "" : " older than 30 days";
-        if(!confirm(`Permanently delete ${targets.length} archived job${targets.length===1?"":"s"}${scopeLabel}? This cannot be undone.`)) return;
+        if(!targets.length){ toast(kept ? `Nothing to delete${keptNote}` : "No archived jobs to delete"); return; }
+        if(!confirm(`Permanently delete ${targets.length} archived job${targets.length===1?"":"s"}${scopeLabel}?${keptNote} This cannot be undone.`)) return;
         for(const j of targets){ await deleteJob(j.id, false); }
         render();
-        toast(`Deleted ${targets.length} archived job${targets.length===1?"":"s"}`);
+        toast(`Deleted ${targets.length} archived job${targets.length===1?"":"s"}${keptNote}`);
     }
 
     $("#scoreAllBtn").onclick     = scoreAllUnscored;
     $("#removeLowBtn").onclick    = removeLowScores;
+    $("#removeSeniorBtn").onclick  = removeSeniorRoles;
+    $("#removeKeywordBtn").onclick = removeByTitleKeyword;
     $("#purgeLowBtn").onclick     = purgeArchivedLowScores;
     $("#archiveOldBtn").onclick   = archiveOldPostings;
     $("#deleteArchivedBtn").onclick = deleteArchivedJobs;
