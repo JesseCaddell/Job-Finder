@@ -18,6 +18,13 @@ Two modes, zero build step, one HTML file.
 
 ## Setting up your own copy
 
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/jesseCaddell/Job-Finder)
+
+The button copies this repo to your GitHub, creates a Netlify site, and asks for
+your Supabase and Anthropic keys. You still need to create the Supabase project
+and run the SQL (section 2) — do that first so you have the keys to paste in.
+Or do it by hand:
+
 Everything account-specific lives in environment variables — nothing to edit
 in the source. To run your own instance:
 
@@ -26,7 +33,11 @@ in the source. To run your own instance:
 3. Create your own Anthropic API key (section 4) — optional, skip if you don't want AI scoring
 4. Deploy your fork to Netlify from Git and set the environment variables (section 1)
 
-`.env.example` lists every variable the app reads.
+`.env.example` lists every variable the app reads. Optional: set
+`ANTHROPIC_MODEL` to use a model other than `claude-haiku-4-5`.
+
+If a feature isn't configured, its button shows a "not configured" message
+instead of failing.
 
 ---
 
@@ -144,7 +155,7 @@ exists exactly for this.
 
 [console.anthropic.com](https://console.anthropic.com) → API Keys → Create key.
 This is billed separately from your Claude.ai subscription.
-Both AI functions use `claude-haiku-4-5` (cheapest model) with a 400–500 token cap.
+Both AI functions use `claude-haiku-4-5` (cheapest model; override with `ANTHROPIC_MODEL`) with a 400–500 token cap.
 Each call costs a fraction of a cent. They only run when you click the button — never automatically.
 
 **Set a monthly spend limit** in the Anthropic console (Settings → Limits) as a backstop.

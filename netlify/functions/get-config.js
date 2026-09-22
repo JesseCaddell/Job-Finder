@@ -16,6 +16,15 @@
 export async function handler() {
     const url     = process.env.SUPABASE_URL     || "";
     const anonKey = process.env.SUPABASE_ANON_KEY || "";
+    const env     = process.env;
+
+    // Which optional features have credentials — booleans only, never the
+    // values. Lets the UI say "not configured" instead of failing on click.
+    const features = {
+        scoring: !!env.ANTHROPIC_API_KEY,
+        feed: !!(env.GREENHOUSE_BOARDS || env.LEVER_COMPANIES || env.ASHBY_COMPANIES ||
+                 (env.USAJOBS_KEY && env.USAJOBS_EMAIL) || (env.ADZUNA_APP_ID && env.ADZUNA_APP_KEY))
+    };
 
     return {
         statusCode: 200,
@@ -28,7 +37,8 @@ export async function handler() {
         body: JSON.stringify({
             supabase: { url, anonKey },
             scoringUrl: "/.netlify/functions/score-fit",
-            improveUrl: "/.netlify/functions/improve-resume"
+            improveUrl: "/.netlify/functions/improve-resume",
+            features
         })
     };
 }

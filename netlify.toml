@@ -1,3 +1,10 @@
 [build]
 publish = "."
 functions = "netlify/functions"
+
+# Prompts shown by the "Deploy to Netlify" button in readme.md.
+# Leave any blank to skip that feature (blank Supabase = local mode).
+[template.environment]
+SUPABASE_URL = "Supabase project URL (blank = local mode)"
+SUPABASE_ANON_KEY = "Supabase anon public key"
+ANTHROPIC_API_KEY = "Anthropic API key for AI scoring (optional)"

@@ -504,6 +504,12 @@
         return h;
     }
 
+    /* get-config reports which optional features have credentials. Only an
+       explicit false blocks — if config couldn't load, let the call try. */
+    const AI_OFF_MSG = "AI scoring isn't configured — set ANTHROPIC_API_KEY in Netlify and redeploy";
+    const aiConfigured   = () => CONFIG.features?.scoring !== false;
+    const feedConfigured = () => CONFIG.features?.feed    !== false;
+
     /* ─── Stages ─── */
     const STAGES = [
         { key:"new",       label:"New",       color:"var(--new)" },
@@ -1200,6 +1206,7 @@
        ============================================================ */
     async function scoreFit(id, override){
         const j=jobs.find(x=>x.id===id); if(!j) return;
+        if(!aiConfigured()){ toast(AI_OFF_MSG); return; }
         const btn = $(`[data-score="${id}"]`);
         if(btn){ btn.textContent="Scoring…"; btn.disabled=true; }
         toast("Scoring fit…");
@@ -1267,6 +1274,7 @@
     /* ─── Draft improvements (AI resume suggestions for fit>=60) ─── */
     async function draftImprovements(id){
         const j=jobs.find(x=>x.id===id); if(!j) return;
+        if(!aiConfigured()){ toast(AI_OFF_MSG); return; }
         toast("Drafting improvements…");
         const settings = await loadSettings();
         const profile  = settings.profile || DEFAULT_PROFILE;
@@ -1560,6 +1568,7 @@
        ============================================================ */
     const FEED_ENDPOINT = "/.netlify/functions/fetch-jobs";
     async function pullFeed(){
+        if(!feedConfigured()){ toast("No feed sources configured — set GREENHOUSE_BOARDS, LEVER_COMPANIES, etc. in Netlify (see .env.example)"); return; }
         toast("Pulling feed…");
         try{
             const settings = await loadSettings();
@@ -1636,6 +1645,7 @@
     async function scoreAllUnscored(){
         const targets = jobs.filter(j=>!j.archived && j.fit==null);
         if(!targets.length){ toast("Nothing to score — every job already has a fit score"); return; }
+        if(!aiConfigured()){ toast(AI_OFF_MSG); return; }
         if(!confirm(`Score ${targets.length} unscored job${targets.length===1?"":"s"}? This calls the AI ${targets.length} time${targets.length===1?"":"s"}.`)) return;
         for(let i=0;i<targets.length;i++){
             toast(`Scoring ${i+1}/${targets.length}…`);

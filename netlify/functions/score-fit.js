@@ -4,11 +4,13 @@
 // Called manually when the user clicks "Score fit" on a job card.
 // Never runs automatically — zero passive token spend.
 //
-// Model: claude-haiku-4-5 (fastest, cheapest — plenty for structured scoring)
+// Model: ANTHROPIC_MODEL env var, default claude-haiku-4-5 (fastest, cheapest — plenty for structured scoring)
 // Max tokens: 400 (a full JSON feedback object needs ~200; 400 is a safe ceiling)
 //
 // Netlify env var required:
 //   ANTHROPIC_API_KEY  — from console.anthropic.com
+// Optional:
+//   ANTHROPIC_MODEL    — override the model, e.g. claude-sonnet-5
 //
 // In shared mode the caller must send a Supabase session token
 // (see netlify/lib/verify-user.js).
@@ -76,7 +78,7 @@ Score this role's fit and return ONLY a minified JSON object with NO markdown, N
                 "anthropic-version": "2023-06-01"
             },
             body: JSON.stringify({
-                model:      "claude-haiku-4-5",
+                model:      process.env.ANTHROPIC_MODEL || "claude-haiku-4-5",
                 max_tokens: 400,
                 messages:   [{ role: "user", content: prompt }]
             })
