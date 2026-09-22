@@ -493,6 +493,17 @@
         }
     }
 
+    /* Headers for the AI functions — in shared mode they require the
+       Supabase session token so strangers can't spend the Anthropic key. */
+    async function aiHeaders(){
+        const h = {"Content-Type":"application/json"};
+        if(SHARED_MODE){
+            const { data:{ session: supa } } = await SB.auth.getSession();
+            if(supa?.access_token) h.Authorization = "Bearer "+supa.access_token;
+        }
+        return h;
+    }
+
     /* ─── Stages ─── */
     const STAGES = [
         { key:"new",       label:"New",       color:"var(--new)" },
@@ -1207,7 +1218,7 @@
         try{
             const res = await fetch(CONFIG.scoringUrl, {
                 method:"POST",
-                headers:{"Content-Type":"application/json"},
+                headers: await aiHeaders(),
                 body: JSON.stringify({
                     profile,
                     resume,
@@ -1263,7 +1274,7 @@
         try{
             const res = await fetch(CONFIG.improveUrl, {
                 method:"POST",
-                headers:{"Content-Type":"application/json"},
+                headers: await aiHeaders(),
                 body: JSON.stringify({
                     profile, resume,
                     title: j.title, company: j.company, loc: j.loc,

@@ -9,11 +9,19 @@
 //
 // Netlify env var required:
 //   ANTHROPIC_API_KEY  — from console.anthropic.com
+//
+// In shared mode the caller must send a Supabase session token
+// (see netlify/lib/verify-user.js).
+
+import { verifyUser } from "../lib/verify-user.js";
 
 export async function handler(event) {
     if (event.httpMethod !== "POST") {
         return { statusCode: 405, body: "Method Not Allowed" };
     }
+
+    const denied = await verifyUser(event);
+    if (denied) return denied;
 
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) {

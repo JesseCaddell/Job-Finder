@@ -16,6 +16,20 @@ Two modes, zero build step, one HTML file.
 
 ---
 
+## Setting up your own copy
+
+Everything account-specific lives in environment variables — nothing to edit
+in the source. To run your own instance:
+
+1. Fork this repo on GitHub
+2. Create your own Supabase project (section 2) — optional, skip for local mode
+3. Create your own Anthropic API key (section 4) — optional, skip if you don't want AI scoring
+4. Deploy your fork to Netlify from Git and set the environment variables (section 1)
+
+`.env.example` lists every variable the app reads.
+
+---
+
 ## Running it locally
 
 Opening `index.html` directly works for browsing the board, but the
@@ -24,6 +38,7 @@ once something is serving `/.netlify/functions/*`. Use Netlify's own dev
 server for that:
 
 ```
+cp .env.example .env    # then fill in the values you have
 npm install
 npm run dev
 ```
@@ -36,11 +51,14 @@ Netlify runs in production — no site linking required for local testing.
 
 ## 1. Deploy to Netlify (2 min)
 
-**Drag and drop:** Netlify → "Add new site" → "Deploy manually" → drag the project folder.
-
-**Or Git (needed for the auto-feed function):**
-Push this folder to GitHub → Netlify → "Import from Git" → deploy.
+Netlify → "Add new site" → "Import an existing project" → pick your fork → deploy.
 `netlify.toml` is already configured.
+
+Use Git, not drag-and-drop: manual deploys don't include the Netlify functions,
+and the app needs them for config (shared mode), the auto-feed, and AI scoring.
+
+Then Site configuration → Environment variables → add the values from
+`.env.example` that you're using, and trigger a redeploy so the functions pick them up.
 
 ---
 
@@ -54,6 +72,11 @@ Push this folder to GitHub → Netlify → "Import from Git" → deploy.
 
 ### 2b. Add users
 
+**First, turn off public sign-ups:** Authentication → Sign In / Providers →
+disable "Allow new users to sign up". The anon key is sent to every browser, and
+the RLS policies let any signed-in user read and write all jobs — so with sign-ups
+on, anyone could create an account and see your data.
+
 Authentication → Users → Add user → create one account for you, one for your partner.
 
 To set a display name (shown when attributing job submissions):
@@ -66,17 +89,15 @@ This is what makes both your boards update live when the other person adds a job
 
 ### 2d. Wire up the app
 
-In `index.html`, find the `CONFIG` block near the top of the `<script>` and fill in:
+Supabase → Project Settings → API. Add these to Netlify's environment variables
+(and to `.env` for local dev):
 
-```js
-const CONFIG = {
-  supabase: {
-    url:     "https://YOUR-PROJECT.supabase.co",   // Settings → API → Project URL
-    anonKey: "eyJ..."                               // Settings → API → anon public key
-  },
-  scoringUrl: "/.netlify/functions/score-fit"
-};
 ```
+SUPABASE_URL      = https://YOUR-PROJECT.supabase.co   # Project URL
+SUPABASE_ANON_KEY = eyJ...                              # anon public key
+```
+
+`get-config.js` serves them to the browser at boot — no keys in `index.html`.
 
 Redeploy. The login screen will switch to email + password automatically.
 
@@ -123,62 +144,21 @@ exists exactly for this.
 
 [console.anthropic.com](https://console.anthropic.com) → API Keys → Create key.
 This is billed separately from your Claude.ai subscription.
-The scoring uses `claude-haiku-4-5` (cheapest model) with a 150-token cap.
-Each score call costs a fraction of a cent. It only runs when you click the button — never automatically.
+Both AI functions use `claude-haiku-4-5` (cheapest model) with a 400–500 token cap.
+Each call costs a fraction of a cent. They only run when you click the button — never automatically.
 
-### 4b. Add the Netlify function
+**Set a monthly spend limit** in the Anthropic console (Settings → Limits) as a backstop.
 
-Create `netlify/functions/score-fit.js`:
+### 4b. Add the env var
 
-```js
-export async function handler(event) {
-  if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
+Netlify → Site configuration → Environment variables → `ANTHROPIC_API_KEY` → your key
+(and in `.env` for local dev). Redeploy.
 
-  const { profile, resume, title, company, loc, notes } = JSON.parse(event.body || "{}");
-
-  const prompt =
-    `You are helping a job seeker triage roles.\n` +
-    `Their profile: "${profile}"\n` +
-    (resume ? `Their resume:\n"""${resume}"""\n` : "") +
-    `\nThe role:\nTitle: ${title}\nCompany: ${company}\nLocation: ${loc}\nDetails: ${notes || "(none)"}\n\n` +
-    `Return ONLY minified JSON, no markdown:\n` +
-    `{"fit":<0-100>,"why":"<one sentence, max 20 words>","tags":["<up to 3 lowercase tags>"]}`;
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5",   // cheapest model — more than enough for scoring
-      max_tokens: 150,              // a JSON blob needs ~60 tokens; 150 is a safe ceiling
-      messages: [{ role: "user", content: prompt }]
-    })
-  });
-
-  if (!res.ok) return { statusCode: 502, body: "AI service error" };
-  const data = await res.json();
-  const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
-
-  try {
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: text  // already JSON from the model
-    };
-  } catch {
-    return { statusCode: 502, body: "Unexpected AI response" };
-  }
-}
-```
-
-### 4c. Add the env var in Netlify
-
-Site settings → Environment variables → `ANTHROPIC_API_KEY` → your key.
-
-Redeploy. The "Score fit" button on every card is now live.
+The functions already exist: `score-fit.js` ("Score fit") and `improve-resume.js`
+("Draft improvements"). In shared mode they reject any request without a valid
+Supabase session token (`netlify/lib/verify-user.js`), so only your signed-in users
+can spend your key. In local mode there are no accounts to check, so the endpoints
+are open to anyone who finds the URL — rely on the spend limit.
 
 ---
 
@@ -188,10 +168,17 @@ Redeploy. The "Score fit" button on every card is now live.
 the-pipeline/
 ├── index.html                      ← the entire app (no build step)
 ├── netlify.toml                    ← functions dir
+├── .env.example                    ← every env var the app reads
 ├── supabase-schema.sql             ← run once in Supabase SQL editor
 ├── README.md                       ← this file
+├── docs/
+│   └── user_commands.md            ← migrations for existing databases
 └── netlify/
-    └── functions/
-        ├── fetch-jobs.js           ← auto-feed puller
-        └── score-fit.js            ← AI proxy (you create this in step 4)
+    ├── functions/
+    │   ├── get-config.js           ← serves Supabase URL + anon key to the browser
+    │   ├── fetch-jobs.js           ← auto-feed puller
+    │   ├── score-fit.js            ← AI fit scoring
+    │   └── improve-resume.js       ← AI resume improvements
+    └── lib/
+        └── verify-user.js          ← Supabase session check for the AI functions
 ```
