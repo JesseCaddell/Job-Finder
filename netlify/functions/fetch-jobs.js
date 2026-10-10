@@ -128,16 +128,23 @@ async function ashby(slug){
         }));
     }catch(e){ console.error("[fetch-jobs] ashby("+slug+") failed:", e.message); return []; }
 }
+// Search terms for the keyword-search sources (USAJOBS, Adzuna). One request
+// per query, since these APIs do poorly with long OR-style strings. Results
+// are still filtered by the title keywords afterwards.
+const SEARCH_QUERIES = ["project manager","product owner","systems analyst","software engineer","software developer","devops engineer"];
+
 async function usajobs(){
     const key=process.env.USAJOBS_KEY, email=process.env.USAJOBS_EMAIL;
     if(!key||!email) return [];
     try{
-        const kw=encodeURIComponent("project manager product owner analyst");
-        const r=await fetch(`https://data.usajobs.gov/api/Search?Keyword=${kw}&LocationName=Washington&ResultsPerPage=25`,
-            { headers:{ "Host":"data.usajobs.gov","User-Agent":email,"Authorization-Key":key } });
-        if(!r.ok){ console.error("[fetch-jobs] usajobs HTTP "+r.status+":", await r.text()); return []; }
-        const d=await r.json();
-        const items=(d.SearchResult&&d.SearchResult.SearchResultItems)||[];
+        const pages = await Promise.all(SEARCH_QUERIES.map(async q=>{
+            const r=await fetch(`https://data.usajobs.gov/api/Search?Keyword=${encodeURIComponent(q)}&LocationName=Washington&ResultsPerPage=25`,
+                { headers:{ "Host":"data.usajobs.gov","User-Agent":email,"Authorization-Key":key } });
+            if(!r.ok){ console.error("[fetch-jobs] usajobs HTTP "+r.status+":", await r.text()); return []; }
+            const d=await r.json();
+            return (d.SearchResult&&d.SearchResult.SearchResultItems)||[];
+        }));
+        const items=pages.flat();
         return items.map(it=>{ const f=it.MatchedObjectDescriptor; return {
             title:f.PositionTitle, company:f.OrganizationName,
             location:(f.PositionLocationDisplay||""), url:f.PositionURI, source:"USAJOBS",
@@ -149,11 +156,14 @@ async function adzuna(){
     const id=process.env.ADZUNA_APP_ID, key=process.env.ADZUNA_APP_KEY;
     if(!id||!key) return [];
     try{
-        const r=await fetch(`https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${id}&app_key=${key}`+
-            `&what=project%20manager%20product%20owner%20analyst&where=Seattle&distance=60&results_per_page=25`);
-        if(!r.ok){ console.error("[fetch-jobs] adzuna HTTP "+r.status+":", await r.text()); return []; }
-        const d=await r.json();
-        return (d.results||[]).map(j=>({
+        const pages = await Promise.all(SEARCH_QUERIES.map(async q=>{
+            const r=await fetch(`https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${id}&app_key=${key}`+
+                `&what=${encodeURIComponent(q)}&where=Seattle&distance=60&results_per_page=25`);
+            if(!r.ok){ console.error("[fetch-jobs] adzuna HTTP "+r.status+":", await r.text()); return []; }
+            const d=await r.json();
+            return d.results||[];
+        }));
+        return pages.flat().map(j=>({
             title:j.title, company:(j.company&&j.company.display_name)||"", location:(j.location&&j.location.display_name)||"",
             url:j.redirect_url, source:"Adzuna", postedAt:j.created||null,
             description:decodeEntities(j.description||"").slice(0,DESC_CAP) }));

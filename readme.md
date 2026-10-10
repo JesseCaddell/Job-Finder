@@ -16,6 +16,18 @@ Two modes, zero build step, one HTML file.
 
 ---
 
+## Where your data lives
+
+| What | Where |
+|---|---|
+| Jobs, notes, scores | Supabase `jobs` table (local mode: browser localStorage) |
+| Profile, resume text, score threshold, **feed title/location keywords** | Supabase `settings` table, single row `id=1` |
+| Resume files | Supabase Storage, private `resumes` bucket |
+| Secrets and source config: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `SUPABASE_*`, `GREENHOUSE_BOARDS`, `LEVER_COMPANIES`, `ASHBY_COMPANIES`, `USAJOBS_*`, `ADZUNA_*` | Netlify environment variables (never in the DB) |
+| Default keywords, search terms, experience cap | In code: `netlify/functions/fetch-jobs.js` |
+
+---
+
 ## Setting up your own copy
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/jesseCaddell/Job-Finder)
@@ -141,7 +153,14 @@ than an error. Build a list of ~15–20 target employers; quality beats volume.
 Then in the app: Settings → paste your feed URL:
 `https://YOUR-SITE.netlify.app/.netlify/functions/fetch-jobs` → Pull feed now.
 
-Edit `TITLE_KEYWORDS` and `LOCATION_KEYWORDS` in `fetch-jobs.js` to tune what comes in.
+Tune what comes in with **Feed options** (the link next to "Pull feed now" on the main page, not
+in Settings). Your title/location keyword lists are saved to the database and **override** the
+defaults in `fetch-jobs.js` (`DEFAULT_TITLE_KEYWORDS`, `DEFAULT_LOCATION_KEYWORDS`). If you change
+the defaults in code and nothing changes in your feed, your saved list is still the old one:
+edit it in Feed options, or reset it with `update settings set title_keywords = '[]';`.
+
+USAJOBS and Adzuna run one search per term in `SEARCH_QUERIES` (top of the sources section in
+`fetch-jobs.js`); results are then filtered by your title keywords.
 
 **Why LinkedIn/WTTJ/Handshake/Indeed aren't in the auto-feed:** None offer a public API
 you can legally pull. Use "Add a job" to paste links from those manually — that button
