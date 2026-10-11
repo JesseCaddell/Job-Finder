@@ -84,6 +84,19 @@ const withinExperienceCap = description => {
     return min===null || min<=MAX_YEARS_EXPERIENCE;
 };
 
+// Which of the user's resumes should score this job: "pm", "dev", or "unsure"
+// (title looks like both — the app then picks whichever resume has more
+// keyword overlap with the posting). A title matching neither defaults to
+// "pm". Kept in sync with classifyTrack() in index.html, which tags
+// manually added jobs the same way.
+const DEV_TITLE_RE = /\b(software|developer|devops|sre|site reliability|full[- ]?stack|front[- ]?end|back[- ]?end|engineer|programmer|sdet|qa|automation|platform|architect)\b/i;
+const PM_TITLE_RE  = /\b(project|product|program|scrum|agile|delivery|release|coordinator|analyst|consultant|operations|techops|owner|manager|implementation)\b/i;
+function classifyTrack(title){
+    const dev = DEV_TITLE_RE.test(title||""), pm = PM_TITLE_RE.test(title||"");
+    if(dev && pm) return "unsure";
+    return dev ? "dev" : "pm";
+}
+
 const DESC_CAP = 10000;
 const NAMED_ENTITIES = { amp:"&", lt:"<", gt:">", quot:'"', apos:"'", nbsp:" ",
     rsquo:"’", lsquo:"‘", rdquo:"”", ldquo:"“", ndash:"–", mdash:"—", hellip:"…" };
@@ -192,6 +205,8 @@ export async function handler(event){
     let jobs = batches.flat()
         .filter(j => titleMatches(j.title, titleKeywords) && locMatches(j.location, locationKeywords) && withinExperienceCap(j.description));
     console.log(`[fetch-jobs] ${rawCount} raw results from all sources, ${jobs.length} matched title/location keywords`);
+
+    jobs.forEach(j=>{ j.track = classifyTrack(j.title); });
 
     // dedupe by url
     const seen=new Set();

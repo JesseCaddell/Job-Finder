@@ -116,6 +116,8 @@
         .card h3 a:hover{color:var(--accent-press)}
         .meta{font-size:13px;color:var(--ink-soft);margin-top:3px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
         .meta .sep{color:var(--line)}
+        .trackbadge{font:inherit;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:1px 7px;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);cursor:pointer}
+        .trackbadge:hover{border-color:var(--ink-faint)}
         .src{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;font-weight:500}
         .fit{flex:none;text-align:center;min-width:50px}
         .fit .score{font-family:Fraunces;font-size:24px;font-weight:500;line-height:1}
@@ -388,16 +390,20 @@
                 <div class="setrow">
                     <div class="lbl">Resume on file</div>
                     <div class="desc">Upload a PDF or Word doc — or paste plain text below. The AI reads this when scoring each role.</div>
-                    <div class="upload-zone" id="resumeZone">
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+                        <span style="font-size:12.5px;color:var(--ink-soft)">Upload as</span>
+                        <select id="resumeTrack" style="border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--card);color:inherit">
+                            <option value="pm">PM resume</option><option value="dev">Dev resume</option>
+                        </select>
+                        <span style="font-size:12px;color:var(--ink-faint)">Each job is scored with the matching resume.</span>
+                    </div>
+                    <div class="upload-zone" id="resumeZone" style="margin-top:8px">
                         <input type="file" id="resumeFile" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
                         <div class="uico">📄</div>
                         <div class="ulbl">Drop a PDF or Word doc here, or <u>browse</u></div>
                         <div class="ufn" id="resumeFileName"></div>
                     </div>
-                    <div id="resumeViewRow" class="hidden" style="margin-top:8px;display:flex;align-items:center;gap:8px">
-                        <button class="btn ghost sm" id="resumeViewBtn" type="button">📄 View current resume</button>
-                        <span id="resumeViewName" style="font-size:12px;color:var(--ink-faint)"></span>
-                    </div>
+                    <div id="resumeList" style="margin-top:8px"></div>
                     <div id="resumeTextFallback">
                         <div style="margin-top:8px;font-size:12px;color:var(--ink-faint);text-align:center">— or paste plain text —</div>
                         <textarea id="s_resume" style="width:100%;margin-top:6px;min-height:70px;border:1px solid var(--line);border-radius:9px;padding:10px;outline:none;resize:vertical" placeholder="Paste resume text here as a fallback…"></textarea>
@@ -602,6 +608,61 @@
        In shared mode → Supabase tables (with optimistic local update).
        ============================================================ */
 
+    /* ─── Resume tracks (PM vs Dev) ───
+       Each job gets a track when it enters the board (the feed tags it; manual
+       adds are tagged on save). Scoring then uses the active resume for that
+       track. Kept in sync with classifyTrack() in netlify/functions/fetch-jobs.js. */
+    const DEV_TITLE_RE = /\b(software|developer|devops|sre|site reliability|full[- ]?stack|front[- ]?end|back[- ]?end|engineer|programmer|sdet|qa|automation|platform|architect)\b/i;
+    const PM_TITLE_RE  = /\b(project|product|program|scrum|agile|delivery|release|coordinator|analyst|consultant|operations|techops|owner|manager|implementation)\b/i;
+    function classifyTrack(title){
+        const dev = DEV_TITLE_RE.test(title||""), pm = PM_TITLE_RE.test(title||"");
+        if(dev && pm) return "unsure";
+        return dev ? "dev" : "pm";
+    }
+    const TRACK_LABEL = { pm:"PM", dev:"Dev", unsure:"PM/Dev" };
+
+    // The active resume for a track is the most recent upload tagged with it.
+    function activeResume(settings, track){
+        const vs = (settings?.resume_versions || []).filter(v=>v.track===track);
+        return vs.length ? vs[vs.length-1] : null;
+    }
+
+    const STOPWORDS = new Set("the and for with you our your will are this that from have has not but all can who they their about into more other such than also able work team role job".split(" "));
+    function termSet(text){
+        const out = new Set();
+        for(const w of (String(text||"").toLowerCase().match(/[a-z][a-z0-9+#]{2,}/g) || []))
+            if(!STOPWORDS.has(w)) out.add(w);
+        return out;
+    }
+    // How many distinct terms in the job posting also appear in the resume.
+    function keywordOverlap(jobText, resumeText){
+        const r = termSet(resumeText); let n = 0;
+        for(const t of termSet(jobText)) if(r.has(t)) n++;
+        return n;
+    }
+
+    // Decides which resume scores a job: its track's active resume. "unsure"
+    // titles go to whichever resume overlaps the posting more (ties → PM).
+    // Falls back to the other track's resume, then to the legacy pasted text.
+    function pickResume(settings, j){
+        let track = j.track || classifyTrack(j.title);
+        const pm = activeResume(settings,"pm"), dev = activeResume(settings,"dev");
+        let note = "";
+        if(track==="unsure"){
+            if(pm && dev){
+                const jobText = ((j.title||"")+" ").repeat(3) + (j.notes||"");
+                track = keywordOverlap(jobText, dev.text) > keywordOverlap(jobText, pm.text) ? "dev" : "pm";
+                note = `Title fits both tracks — used your ${TRACK_LABEL[track]} resume (closer keyword match)`;
+            } else track = (dev && !pm) ? "dev" : "pm";
+        }
+        let version = track==="dev" ? dev : pm;
+        if(!version){
+            const other = track==="dev" ? pm : dev;
+            if(other){ version = other; note = `No ${TRACK_LABEL[track]} resume uploaded — used your ${track==="dev"?"PM":"Dev"} resume`; }
+        }
+        return { track, version, text: version?.text || settings.resume_text || settings.resume || "", note };
+    }
+
     /* ─── Settings ─── */
     async function loadSettings(){
         if(SHARED_MODE){
@@ -646,6 +707,7 @@
             improvements:   r.improvements || null,
             archived:  !!r.archived,
             postedAt:  r.posted_at || null,
+            track:     r.track || null,
             history:  r.history || [],
             title:    r.title || "",
             company:  r.company || "",
@@ -677,6 +739,7 @@
             improvements:    j.improvements || null,
             archived:  !!j.archived,
             posted_at: j.postedAt || null,
+            track:     j.track || null,
             added_by:  j.by,
             history:   j.history || []
         };
@@ -689,6 +752,20 @@
         } else {
             const idx = S.jobs.findIndex(x=>x.id===j.id);
             if(idx>=0) S.jobs[idx]=j; else S.jobs.unshift(j);
+            store.set("pipeline_state", S);
+        }
+    }
+
+    // One-time catch-up for jobs saved before tracks existed: tag every job
+    // that has no track, in a single write. A no-op once everything is tagged.
+    async function backfillTracks(){
+        const untagged = jobs.filter(j=>!j.track);
+        if(!untagged.length) return;
+        untagged.forEach(j=>{ j.track = classifyTrack(j.title); });
+        if(SHARED_MODE){
+            const { error } = await SB.from("jobs").upsert(untagged.map(jobToDbRow));
+            if(error) console.error("track backfill failed:", error);
+        } else {
             store.set("pipeline_state", S);
         }
     }
@@ -836,6 +913,7 @@
 
         // Load data
         await loadJobs();
+        await backfillTracks();
         const settings = await loadSettings();
         lowScoreThreshold = settings.low_score_threshold ?? DEFAULT_LOW_SCORE_THRESHOLD;
 
@@ -914,6 +992,7 @@
           <span>${esc(j.company||"—")}</span><span class="sep">•</span>
           <span>${esc(j.loc||"—")}</span>
           ${j.src?`<span class="sep">•</span><span class="src">${esc(j.src)}</span>`:""}
+          <span class="sep">•</span><button class="trackbadge" data-track="${j.id}" title="Which resume scores this job — click to switch">${TRACK_LABEL[j.track||classifyTrack(j.title)]}</button>
         </div>
       </div>
       ${fitHtml}
@@ -985,6 +1064,13 @@
         });
         $$("[data-score]").forEach(b=>b.onclick=()=>scoreFit(b.dataset.score));
         $$("[data-open]").forEach(b=>b.onclick=()=>openDetail(b.dataset.open));
+        $$("[data-track]").forEach(b=>b.onclick=async e=>{
+            e.stopPropagation();
+            const j = jobs.find(x=>x.id===b.dataset.track); if(!j) return;
+            j.track = (j.track||classifyTrack(j.title))==="dev" ? "pm" : "dev";
+            await upsertJob(j); render();
+            toast(`Marked ${TRACK_LABEL[j.track]} — the next score will use your ${TRACK_LABEL[j.track]} resume`);
+        });
         $$("[data-cal]").forEach(b=>b.onclick=()=>addToCalendar(b.dataset.cal));
         $$("[data-archive]").forEach(b=>b.onclick=()=>setArchived(b.dataset.archive, true));
         $$("[data-restore]").forEach(b=>b.onclick=()=>setArchived(b.dataset.restore, false));
@@ -1058,7 +1144,9 @@
 
         if(editingId){
             const j = jobs.find(x=>x.id===editingId);
+            const titleChanged = data.title !== j.title;
             Object.assign(j, data);
+            if(titleChanged || !j.track) j.track = classifyTrack(j.title);
             await upsertJob(j);
             toast("Saved");
         } else {
@@ -1066,6 +1154,7 @@
                 id: newId(), added: Date.now(), by: who,
                 status:"new", fit:null, why:"",
                 history:[{s:"new", t:Date.now(), by:who}],
+                track: classifyTrack(data.title),
                 ...data
             };
             jobs.unshift(j);
@@ -1213,13 +1302,14 @@
 
         const settings = await loadSettings();
         const profile  = settings.profile || DEFAULT_PROFILE;
-        const currentVersion = SHARED_MODE ? currentResumeVersion(settings) : null;
-        // Prefer an explicit override resume (e.g. "score additional resume"),
-        // then the uploaded/versioned resume, then the pasted fallback.
-        const resumeText     = override?.text || settings.resume_text || settings.resume || "";
+        // An explicit override resume (e.g. "score additional resume") wins;
+        // otherwise the job's track picks the resume (see pickResume).
+        const picked         = pickResume(settings, j);
+        const resumeText     = override?.text || picked.text;
         const resume         = resumeText.slice(0, 4000);
-        const resumeId       = override?.id       ?? currentVersion?.id       ?? null;
-        const resumeFilename = override?.filename ?? currentVersion?.filename ?? null;
+        const resumeId       = override?.id       ?? picked.version?.id       ?? null;
+        const resumeFilename = override?.filename ?? picked.version?.filename ?? null;
+        const track          = override?.track || picked.track;
         const who = SHARED_MODE ? (supaUser.user_metadata?.name||supaUser.email.split("@")[0]) : session.user;
 
         try{
@@ -1255,6 +1345,7 @@
             j.scoredAt       = new Date().toISOString();
             j.resumeId       = resumeId;
             j.resumeFilename = resumeFilename;
+            j.track          = track;   // an "unsure" job now records which resume won
             j.improvements   = null;   // stale relative to the new score
             // Merge any suggested tags
             (out.tags||[]).forEach(t=>{
@@ -1263,7 +1354,7 @@
             });
             await upsertJob(j);
             render();
-            toast("Scored "+j.fit+"/100 — open Details to see the full breakdown");
+            toast("Scored "+j.fit+"/100 — "+(!override && picked.note ? picked.note : "open Details to see the full breakdown"));
         }catch(e){
             toast("Scoring unavailable — deploy the score-fit function and set ANTHROPIC_API_KEY in Netlify");
             console.warn("Score fit failed:",e);
@@ -1278,7 +1369,9 @@
         toast("Drafting improvements…");
         const settings = await loadSettings();
         const profile  = settings.profile || DEFAULT_PROFILE;
-        const resume   = (settings.resume_text || settings.resume || "").slice(0, 4000);
+        // Improve the same resume that scored this job, else the track's pick.
+        const scoredWith = (settings.resume_versions||[]).find(v=>v.id===j.resumeId);
+        const resume   = (scoredWith?.text || pickResume(settings, j).text).slice(0, 4000);
         try{
             const res = await fetch(CONFIG.improveUrl, {
                 method:"POST",
@@ -1304,19 +1397,20 @@
 
     /* ─── Score additional resume: upload a new version, rescore this job ─── */
     async function scoreAdditionalResume(id, file){
-        if(!SHARED_MODE){ toast("Uploading a new resume version needs shared/Supabase mode"); return; }
+        const job = jobs.find(x=>x.id===id);
+        const track = (job?.track || classifyTrack(job?.title)) === "dev" ? "dev" : "pm";
         toast("Reading new resume…");
         try{
             const text = (file.type === "application/pdf" || file.name.endsWith(".pdf"))
                 ? await extractPdf(file) : await extractDocx(file);
             if(!text.trim()) throw new Error("No text found in file");
 
-            const version  = await uploadResumeVersion(file, text);
+            const version  = await uploadResumeVersion(file, text, track);
             const settings = await loadSettings();
             const versions = (settings.resume_versions || []).concat(version);
             await saveSettings({ resume: text, resume_text: text, resume_versions: versions });
 
-            await scoreFit(id, { id: version.id, filename: version.filename, text });
+            await scoreFit(id, { id: version.id, filename: version.filename, text, track });
         }catch(e){
             toast("Couldn't score with the new resume: " + e.message);
             console.warn(e);
@@ -1339,14 +1433,13 @@
             if(!text.trim()) throw new Error("No text found in file");
             const settings = await loadSettings();
             const patch = { resume: text, resume_text: text };
+            const track = $("#resumeTrack").value;
 
-            if(SHARED_MODE){
-                status.textContent = "Uploading file…";
-                const version = await uploadResumeVersion(file, text);
-                const versions = (settings.resume_versions || []).concat(version);
-                patch.resume_versions = versions;
-                settings.resume_versions = versions;
-            }
+            status.textContent = "Uploading file…";
+            const version = await uploadResumeVersion(file, text, track);
+            const versions = (settings.resume_versions || []).concat(version);
+            patch.resume_versions = versions;
+            settings.resume_versions = versions;
 
             settings.resume_text = text;
             settings.resume      = text;
@@ -1355,7 +1448,7 @@
             $("#resumeFileName").textContent = "✓ " + file.name + " — " + Math.round(text.length/4) + " tokens extracted";
             status.textContent = "";
             refreshResumeViewer(settings);
-            toast("Resume uploaded and ready for scoring");
+            toast(TRACK_LABEL[track]+" resume uploaded — it will score "+TRACK_LABEL[track]+" roles");
         } catch(e) {
             status.textContent = "Could not read file: " + e.message;
             console.warn(e);
@@ -1365,16 +1458,14 @@
     /* ─── Resume file storage (shared mode only) ───
        Local mode has no backend to store the raw file in, so it keeps
        today's extracted-text-only behavior. */
-    async function uploadResumeVersion(file, text){
-        const path = `${supaUser.id}/${Date.now()}-${file.name}`;
-        const { error } = await SB.storage.from("resumes").upload(path, file, { upsert: true });
-        if(error) throw new Error("Storage upload failed: " + error.message);
-        return { id: newId(), filename: file.name, path, text, uploadedAt: new Date().toISOString() };
-    }
-
-    function currentResumeVersion(settings){
-        const versions = settings?.resume_versions || [];
-        return versions.length ? versions[versions.length - 1] : null;
+    async function uploadResumeVersion(file, text, track){
+        let path = null;
+        if(SHARED_MODE){
+            path = `${supaUser.id}/${Date.now()}-${file.name}`;
+            const { error } = await SB.storage.from("resumes").upload(path, file, { upsert: true });
+            if(error) throw new Error("Storage upload failed: " + error.message);
+        }
+        return { id: newId(), filename: file.name, path, text, track, uploadedAt: new Date().toISOString() };
     }
 
     async function viewResumeFile(path){
@@ -1383,23 +1474,32 @@
         window.open(data.signedUrl, "_blank");
     }
 
+    // Lists every uploaded resume with its track. The newest upload per
+    // track is the active one; older or untagged uploads can be re-tagged.
     function refreshResumeViewer(settings){
-        const row = $("#resumeViewRow");
-        const fallback = $("#resumeTextFallback");
-        if(!SHARED_MODE){
-            row.classList.add("hidden");
-            fallback.classList.remove("hidden");
-            return;
-        }
-        const current = currentResumeVersion(settings);
-        fallback.classList.add("hidden");
-        if(current){
-            row.classList.remove("hidden");
-            $("#resumeViewName").textContent = current.filename;
-            $("#resumeViewBtn").onclick = ()=>viewResumeFile(current.path);
-        } else {
-            row.classList.add("hidden");
-        }
+        $("#resumeTextFallback").classList.toggle("hidden", SHARED_MODE);
+        const versions = settings?.resume_versions || [];
+        const active = { pm: activeResume(settings,"pm"), dev: activeResume(settings,"dev") };
+        const slot = t => `<div style="font-size:13px;margin-top:4px"><b>${TRACK_LABEL[t]} resume:</b> ${
+            active[t] ? esc(active[t].filename) : '<span style="color:var(--ink-faint)">none — upload one above</span>'}</div>`;
+        const rows = versions.slice().reverse().map(v=>`
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12.5px">
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.filename)}${active[v.track]?.id===v.id?' <b style="color:var(--offer)">✓ active</b>':''}</span>
+        <select data-vtrack="${v.id}" style="border:1px solid var(--line);border-radius:7px;padding:3px 6px;background:var(--card);color:inherit">
+          <option value="" ${!v.track?'selected':''}>untagged</option>
+          <option value="pm" ${v.track==="pm"?'selected':''}>PM</option>
+          <option value="dev" ${v.track==="dev"?'selected':''}>Dev</option>
+        </select>
+        ${v.path?`<button class="miniact" data-vview="${esc(v.path)}" type="button">View</button>`:""}
+      </div>`).join("");
+        $("#resumeList").innerHTML = slot("pm") + slot("dev")
+            + (versions.some(v=>!v.track) ? '<div style="font-size:12px;color:var(--ink-faint);margin-top:6px">Some uploads are untagged — mark each as PM or Dev below so scoring knows which to use.</div>' : "")
+            + rows;
+        $$("#resumeList [data-vtrack]").forEach(sel=>sel.onchange=async ()=>{
+            const v = versions.find(x=>x.id===sel.dataset.vtrack);
+            if(v){ v.track = sel.value || null; await saveSettings({ resume_versions: versions }); refreshResumeViewer(settings); }
+        });
+        $$("#resumeList [data-vview]").forEach(b=>b.onclick=()=>viewResumeFile(b.dataset.vview));
     }
 
     async function extractPdf(file){
@@ -1617,6 +1717,7 @@
                 const j={
                     id: newId(), added:Date.now(), by:"Auto feed",
                     status:"new", fit:null, why:"", postedAt: it.postedAt||null,
+                    track: it.track || classifyTrack(it.title||""),
                     history:[{s:"new",t:Date.now(),by:"Auto feed"}],
                     title:   it.title||"",
                     company: it.company||"",

@@ -16,6 +16,21 @@ Two modes, zero build step, one HTML file.
 
 ---
 
+## PM vs Dev resumes
+
+Upload one resume per track in Settings ("Upload as" PM or Dev). Every job gets a track when it
+enters the board: the feed tags it from the title (`classifyTrack` in `fetch-jobs.js`, mirrored in
+`index.html`), manual adds are tagged on save, and existing jobs are tagged once on first load.
+Scoring uses the active (newest) resume for the job's track. Titles that look like both (e.g.
+"Software Engineering Manager") are scored with whichever resume shares more keywords with the
+posting. Wrong guess? Click the PM/Dev badge on the card to switch it. Titles matching neither list
+default to PM.
+
+**Upgrading an existing database:** run `alter table jobs add column if not exists track text;`
+in the Supabase SQL editor *before* deploying, or job saves will fail.
+
+---
+
 ## Where your data lives
 
 | What | Where |

@@ -28,10 +28,14 @@ create table if not exists jobs (
     improvements    jsonb,     -- {text, generatedAt}
     archived    boolean default false,
     posted_at   timestamptz,   -- source-reported posting date, used to detect reposts
+    track       text,          -- pm | dev | unsure — which resume scores this job
     added_by    text,
     history     jsonb default '[]',
     created_at  timestamptz default now()
     );
+
+-- Upgrading an existing database? Run this once:
+alter table jobs add column if not exists track text;
 
 -- Shared settings (one row)
 create table if not exists settings (
