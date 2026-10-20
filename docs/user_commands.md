@@ -96,3 +96,17 @@ and back in once if scoring returns 401.
 
 2. **Set an Anthropic spend limit.** console.anthropic.com → Settings →
    Limits → set a monthly cap.
+
+## PM/Dev resume tracks: `track` column (fixes "Could not find the 'track' column" upsert errors)
+
+The deployed app writes a `track` value (`pm` | `dev` | `unsure`) on every job. The
+live `jobs` table doesn't have that column yet, so every upsert fails with
+`PGRST204`. SQL editor → run:
+
+```sql
+alter table jobs add column if not exists track text;
+notify pgrst, 'reload schema';
+```
+
+Then hard-refresh the site and pull the feed again. (The `notify` line forces
+PostgREST to refresh its schema cache so the new column is accepted immediately.)
