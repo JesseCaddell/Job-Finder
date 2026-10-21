@@ -917,6 +917,9 @@
        ENTER APP
        ============================================================ */
     async function enterApp(){
+        // The board moved to the React app (/board). Only the archived view
+        // (#archived) is still served from here, until the Archive page migrates.
+        if(location.hash!=="#archived"){ location.replace("/board"); return; }
         // Determine display name
         const displayName = SHARED_MODE
             ? (supaUser.user_metadata?.name || supaUser.email.split("@")[0])
@@ -1108,6 +1111,7 @@
     $("#sort").onchange  = e=>{ filter.sort=e.target.value; render(); };
     $("#addBtn").onclick = openAdd;
     $("#archivedToggle").onclick = ()=>{
+        if(filter.archived){ location.href = "/board"; return; }   // "Back to board" is the React board now
         filter.archived = !filter.archived;
         // Archived view: show every stage mixed (it's a review/restore list, not a workflow).
         // Board view: land back on New, not the old "everything mixed" default.
