@@ -84,3 +84,6 @@
 .text-link:hover { text-decoration: underline; }
 .chip { height: 34px; padding: 0 12px; border: 1px solid transparent; border-radius: var(--radius); background: var(--bg); font-size: 13px; font-weight: 600; color: var(--ink); }
 .chip.on { background: var(--surface); border-color: var(--line); }
+.plain-select { flex: 1; min-width: 0; height: 100%; border: none; outline: none; background: none; font-size: 14px; }
+
+a.btn { text-decoration: none; }

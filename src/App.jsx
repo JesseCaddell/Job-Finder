@@ -1,34 +1,26 @@
-import { useEffect } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useApp } from "./context/AppContext.jsx";
-import { LEGACY_URL } from "./lib/session.js";
+import { LOCAL_LOGIN_PATH } from "./lib/session.js";
 import AppShell from "./components/AppShell.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
 import Login from "./pages/Login.jsx";
+import LocalLogin from "./pages/LocalLogin.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import SetPassword from "./pages/SetPassword.jsx";
 import { JobsProvider } from "./context/JobsContext.jsx";
 import Board from "./pages/board/Board.jsx";
+import Archive from "./pages/archive/Archive.jsx";
 import SettingsLayout from "./pages/settings/SettingsLayout.jsx";
 import SearchProfile from "./pages/settings/SearchProfile.jsx";
 import FeedPreferences from "./pages/settings/FeedPreferences.jsx";
 import KeywordsPage from "./pages/settings/KeywordsPage.jsx";
 
-/* The pages are migrated one at a time. Anything not yet ported still runs
-   in the original single-page app, served unchanged from public/legacy.html.
-   Each migration PR takes over one route and removes its legacy counterpart.
-
-   "/" decides where a visitor belongs: signed-out shared-mode visitors go to
-   the sign-in page, signed-in visitors to the board, and signed-out local-mode
-   visitors to the passcode gate that still lives in legacy.html. */
+/* "/" decides where a visitor belongs: signed-in visitors to the board,
+   signed-out visitors to the sign-in page for the current mode. */
 function Home() {
     const { ready, sharedMode, account } = useApp();
-    const toGate = ready && !sharedMode && !account;
-    useEffect(() => {
-        if (toGate) window.location.replace(LEGACY_URL);
-    }, [toGate]);
-    if (!ready || toGate) return null;
-    return <Navigate to={account ? "/board" : "/login"} replace />;
+    if (!ready) return null;
+    return <Navigate to={account ? "/board" : sharedMode ? "/login" : LOCAL_LOGIN_PATH} replace />;
 }
 
 export default function App() {
@@ -36,12 +28,14 @@ export default function App() {
         <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/local-login" element={<LocalLogin />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<SetPassword variant="reset" />} />
             <Route path="/accept-invite" element={<SetPassword variant="invite" />} />
             <Route element={<RequireAuth><AppShell /></RequireAuth>}>
                 <Route element={<JobsProvider><Outlet /></JobsProvider>}>
                     <Route path="/board" element={<Board />} />
+                    <Route path="/archive" element={<Archive />} />
                 </Route>
                 <Route path="/settings" element={<SettingsLayout />}>
                     <Route index element={<Navigate to="profile" replace />} />

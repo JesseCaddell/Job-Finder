@@ -16,7 +16,7 @@ const OLD_POSTING_MS = 30 * 24 * 60 * 60 * 1000;
    deletes), and never touches a job categorized past "new". */
 export default function useJobActions() {
     const { account } = useApp();
-    const { jobs, saveJob, saveJobs, removeJob, lowScoreThreshold, who } = useJobs();
+    const { jobs, saveJob, saveJobs, removeJob, removeJobs, lowScoreThreshold, who } = useJobs();
     const toast = useToast();
 
     // Async loops need the latest list, not the one captured when they started.
@@ -97,6 +97,32 @@ export default function useJobActions() {
         const j = find(id);
         if (j) await saveJob({ ...j, archived });
     }, [saveJob]);
+
+    // Back to the New stage and out of the archive. The move is added to the
+    // job's history like any other stage change.
+    const restoreToNew = useCallback(async ids => {
+        const targets = jobsRef.current.filter(j => ids.includes(j.id));
+        if (!targets.length) return;
+        await saveJobs(targets.map(j => ({
+            ...j, archived: false, status: "new",
+            history: [...(j.history || []), { s: "new", t: Date.now(), by: who }]
+        })));
+        toast(`Restored ${targets.length} job${targets.length === 1 ? "" : "s"} to New`);
+    }, [who, saveJobs, toast]);
+
+    // Permanently deletes archived jobs. Only archived jobs are ever touched, and
+    // — as in the legacy bulk delete — jobs categorized past "new" are kept.
+    const deleteArchived = useCallback(async ids => {
+        const matching = jobsRef.current.filter(j => j.archived && ids.includes(j.id));
+        const targets = matching.filter(j => !isProtectedStatus(j));
+        const kept = matching.length - targets.length;
+        const keptNote = kept ? ` (kept ${kept} categorized applied/interview/offer/denied)` : "";
+        if (!targets.length) { toast(kept ? `Nothing to delete${keptNote}` : "No archived jobs to delete"); return false; }
+        if (!window.confirm(`Permanently delete ${targets.length} archived job${targets.length === 1 ? "" : "s"}?${keptNote} This cannot be undone.`)) return false;
+        await removeJobs(targets.map(j => j.id));
+        toast(`Deleted ${targets.length} archived job${targets.length === 1 ? "" : "s"}${keptNote}`);
+        return true;
+    }, [removeJobs, toast]);
 
     const deleteJob = useCallback(async (id, message) => {
         const j = find(id);
@@ -195,7 +221,7 @@ export default function useJobActions() {
 
     return {
         scoringId, scoreAll, scoreOne, draft, scoreWithNewResume,
-        setStatus, toggleTrack, setArchived, deleteJob, calendar,
+        setStatus, toggleTrack, setArchived, restoreToNew, deleteArchived, deleteJob, calendar,
         scoreAllUnscored, clearNewScores, removeLowScores, removeSeniorRoles, removeByTitleKeyword, archiveOldPostings
     };
 }

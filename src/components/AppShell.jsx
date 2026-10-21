@@ -4,11 +4,9 @@ import { Archive, ChevronDown, LayoutDashboard, LogOut, Settings2 } from "lucide
 import Brand from "./Brand.jsx";
 import { useApp } from "../context/AppContext.jsx";
 import { initials } from "../lib/format.js";
-import { LEGACY_URL } from "../lib/session.js";
 import "./shell.css";
 
-/* Top navigation shared by every signed-in page. Archive still lives in the
-   original app until its page is migrated, so it is a plain link. */
+/* Top navigation shared by every signed-in page. */
 function AccountMenu() {
     const { account, signOut } = useApp();
     const [open, setOpen] = useState(false);
@@ -46,7 +44,9 @@ export default function AppShell() {
                     <NavLink className={({ isActive }) => "nav-item" + (isActive ? " active" : "")} to="/board">
                         <LayoutDashboard size={17} /> Board
                     </NavLink>
-                    <a className="nav-item" href={LEGACY_URL + "#archived"}><Archive size={17} /> Archive</a>
+                    <NavLink className={({ isActive }) => "nav-item" + (isActive ? " active" : "")} to="/archive">
+                        <Archive size={17} /> Archive
+                    </NavLink>
                     <NavLink className={({ isActive }) => "nav-item" + (isActive ? " active" : "")} to="/settings">
                         <Settings2 size={17} /> Settings
                     </NavLink>
