@@ -1,0 +1,79 @@
+.auth { display: flex; min-height: 100vh; background: var(--bg); }
+
+/* ---- editorial welcome ---- */
+.auth-welcome {
+    flex: 0 0 656px; display: flex; flex-direction: column; justify-content: space-between;
+    padding: 64px; background: var(--surface-warm); border-right: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark { width: 9px; height: 24px; border-radius: 2px; background: var(--accent); }
+.brand-name { font-weight: 700; font-size: 27px; line-height: 1.5; color: var(--ink); }
+.eyebrow { font-size: 11px; font-weight: 700; color: var(--accent-ink); letter-spacing: 0; }
+.auth-promise { display: flex; flex-direction: column; gap: 30px; }
+.auth-headline { font-size: 60px; font-weight: 400; line-height: 1.1; color: var(--ink); }
+.auth-lede { font-size: 17px; color: var(--ink-soft); }
+.auth-steps { list-style: none; margin: 0; padding: 24px 0 0; }
+.auth-step { display: flex; align-items: center; gap: 20px; padding: 20px 0; border-top: 1px solid #d8d5cd; }
+.step-marker {
+    display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 1px solid;
+    border-radius: 100px; font-size: 12px; font-weight: 600;
+}
+.step-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.step-text strong { font-size: 16px; font-weight: 600; color: var(--ink); }
+.step-text span { font-size: 12px; color: var(--ink-soft); }
+.step-arrow { flex: none; color: var(--ink-soft); }
+.auth-footer { font-size: 12px; color: var(--ink-soft); white-space: pre; }
+
+/* ---- form side ---- */
+.auth-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 80px; min-width: 0; }
+.auth-form { width: 400px; max-width: 100%; display: flex; flex-direction: column; gap: 28px; }
+.auth-heading { display: flex; flex-direction: column; gap: 8px; }
+.auth-heading h1 { font-family: var(--font-serif); font-size: 40px; font-weight: 400; line-height: 1.5; color: var(--ink); }
+.auth-heading p { font-size: 14px; color: var(--ink-soft); }
+.auth-heading .eyebrow { font-size: 11px; color: var(--accent-ink); }
+.auth-fields { display: flex; flex-direction: column; gap: 20px; }
+
+.field { display: flex; flex-direction: column; gap: 7px; }
+.field label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.input {
+    display: flex; align-items: center; min-height: 44px; padding: 0 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.input:focus-within { border-color: var(--ink-soft); }
+.input-tall { height: 48px; justify-content: space-between; }
+.input input { flex: 1; min-width: 0; border: none; outline: none; background: none; height: 100%; font-size: 14px; }
+.input input::placeholder { color: var(--ink-soft); }
+.eye { display: grid; place-items: center; color: var(--ink-soft); }
+.eye:hover { color: var(--ink); }
+
+.auth-row { display: flex; align-items: center; justify-content: space-between; }
+.check { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink); cursor: pointer; }
+.check input { position: absolute; opacity: 0; width: 18px; height: 18px; margin: 0; cursor: pointer; }
+.check-box {
+    display: grid; place-items: center; flex: none; width: 18px; height: 18px;
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 4px; color: transparent;
+}
+.check input:checked + .check-box { background: var(--ink); border-color: var(--ink); color: #fff; }
+.check input:focus-visible + .check-box { outline: 2px solid var(--accent); outline-offset: 2px; }
+.auth-link { font-size: 13px; font-weight: 600; color: var(--accent-ink); text-decoration: none; }
+.auth-link:hover { text-decoration: underline; }
+
+.auth-submit {
+    display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; height: 48px;
+    background: var(--accent); color: #fff; border-radius: var(--radius); font-size: 14px; font-weight: 600;
+}
+.auth-submit:hover:not(:disabled) { background: var(--accent-ink); }
+.auth-submit:disabled { opacity: .55; cursor: not-allowed; }
+
+.auth-error { font-size: 13px; color: var(--red); }
+.auth-notice {
+    display: flex; flex-direction: column; gap: 6px; padding: 18px; font-size: 13px;
+    background: var(--accent-tint); color: var(--accent-ink); border-radius: var(--radius);
+}
+.auth-notice strong { font-weight: 600; }
+.auth-back { display: flex; justify-content: center; }
+
+@media (max-width: 1100px) {
+    .auth-welcome { display: none; }
+    .auth-main { padding: 40px 24px; }
+}
