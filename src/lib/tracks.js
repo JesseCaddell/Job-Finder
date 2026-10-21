@@ -2,8 +2,8 @@
    Each job gets a track when it enters the board (the feed tags it; manual
    adds are tagged on save). Scoring then uses the active resume for that
    track. Kept in sync with classifyTrack() in netlify/functions/fetch-jobs.js. */
-const DEV_TITLE_RE = /\b(software|developer|devops|sre|site reliability|full[- ]?stack|front[- ]?end|back[- ]?end|engineer|programmer|sdet|qa|automation|platform|architect)\b/i;
-const PM_TITLE_RE  = /\b(project|product|program|scrum|agile|delivery|release|coordinator|analyst|consultant|operations|techops|owner|manager|implementation)\b/i;
+export const DEV_TITLE_RE = /\b(software|developer|devops|sre|site reliability|full[- ]?stack|front[- ]?end|back[- ]?end|engineer|programmer|sdet|qa|automation|platform|architect)\b/i;
+export const PM_TITLE_RE  = /\b(project|product|program|scrum|agile|delivery|release|coordinator|analyst|consultant|operations|techops|owner|manager|implementation)\b/i;
 
 export function classifyTrack(title) {
     const dev = DEV_TITLE_RE.test(title || ""), pm = PM_TITLE_RE.test(title || "");
