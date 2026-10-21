@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 export function TextField({ label, id, ...input }) {
     return (
@@ -32,12 +32,4 @@ export function PasswordField({ label, id, ...input }) {
     );
 }
 
-export function Checkbox({ checked, onChange, children }) {
-    return (
-        <label className="check">
-            <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
-            <span className="check-box" aria-hidden="true"><Check size={13} strokeWidth={3} /></span>
-            <span>{children}</span>
-        </label>
-    );
-}
+export { default as Checkbox } from "../Checkbox.jsx";

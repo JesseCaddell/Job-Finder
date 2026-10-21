@@ -22,8 +22,6 @@
 .background-block { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); }
 .background-block p { font-size: 14px; color: var(--ink); }
 .background-foot { display: flex; align-items: flex-start; justify-content: space-between; font-size: 11px; color: var(--ink-soft); }
-.icon-btn { display: grid; place-items: center; color: var(--ink-soft); }
-.icon-btn:hover { color: var(--ink); }
 
 /* ---- resumes ---- */
 .resume-import { display: flex; align-items: stretch; gap: 12px; }
@@ -48,8 +46,6 @@
 .resume-row > svg { flex: none; color: var(--ink-soft); }
 .resume-identity { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .resume-identity span.name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--ink); }
-.text-link { font-size: 12px; font-weight: 600; color: var(--accent-ink); }
-.text-link:hover { text-decoration: underline; }
 .hint { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-soft); }
 .hint svg { flex: none; }
 
@@ -69,10 +65,10 @@
 
 /* ---- save row + danger zone ---- */
 .save-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--ink-soft); }
-.danger { display: flex; align-items: center; gap: 24px; padding: 24px; border: 1px solid var(--red-line); border-radius: var(--radius-lg); }
-.danger-copy { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-.danger-copy strong { font-size: 15px; font-weight: 600; color: var(--red); }
-.danger-copy p { font-size: 13px; color: var(--ink-soft); }
+.danger-zone { display: flex; align-items: center; gap: 24px; padding: 24px; border: 1px solid var(--red-line); border-radius: var(--radius-lg); }
+.danger-zone-copy { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.danger-zone-copy strong { font-size: 15px; font-weight: 600; color: var(--red); }
+.danger-zone-copy p { font-size: 13px; color: var(--ink-soft); }
 
 /* ---- feed preferences: keyword allowlist ---- */
 .kw-controls { display: flex; gap: 12px; }
@@ -80,8 +76,6 @@
 .input-icon { flex: none; color: var(--ink-soft); }
 .kw-hint { margin-top: -10px; font-size: 12px; color: var(--ink-soft); }
 .kw-groups { display: flex; align-items: center; gap: 8px; }
-.chip { height: 34px; padding: 0 12px; border: 1px solid transparent; border-radius: var(--radius); background: var(--bg); font-size: 13px; font-weight: 600; color: var(--ink); }
-.chip.on { background: var(--surface); border-color: var(--line); }
 .kw-count { margin-left: auto; font-size: 11px; color: var(--ink-soft); }
 .kw-table { display: flex; flex-direction: column; }
 .kw-row { display: flex; align-items: center; gap: 20px; padding: 12px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--ink); }

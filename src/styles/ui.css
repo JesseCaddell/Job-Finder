@@ -76,3 +76,11 @@
 .page-heading p { font-size: 14px; color: var(--ink-soft); }
 .page-heading .eyebrow { font-size: 11px; color: var(--accent-ink); }
 .muted { color: var(--ink-soft); }
+
+/* ---- small controls ---- */
+.icon-btn { display: grid; place-items: center; color: var(--ink-soft); }
+.icon-btn:hover { color: var(--ink); }
+.text-link { font-size: 12px; font-weight: 600; color: var(--accent-ink); }
+.text-link:hover { text-decoration: underline; }
+.chip { height: 34px; padding: 0 12px; border: 1px solid transparent; border-radius: var(--radius); background: var(--bg); font-size: 13px; font-weight: 600; color: var(--ink); }
+.chip.on { background: var(--surface); border-color: var(--line); }

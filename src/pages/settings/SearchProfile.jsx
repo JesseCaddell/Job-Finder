@@ -106,8 +106,8 @@ export default function SearchProfile() {
                 <button type="button" className="btn btn-primary" onClick={saveAll}>Save settings</button>
             </div>
 
-            <section className="danger">
-                <div className="danger-copy">
+            <section className="danger-zone">
+                <div className="danger-zone-copy">
                     <strong>Danger zone</strong>
                     <p>
                         {sharedMode
