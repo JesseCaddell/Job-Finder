@@ -316,6 +316,7 @@
         <!-- Board actions: operate on the jobs already on the board -->
         <div class="toolbar">
             <button class="btn ghost" id="scoreAllBtn">✦ Score all</button>
+            <button class="btn ghost" id="clearScoresBtn">Clear scores on New</button>
             <button class="btn ghost" id="removeLowBtn">Remove low scores</button>
             <button class="btn ghost" id="removeSeniorBtn">Remove Sr/Senior roles</button>
             <button class="btn ghost" id="removeKeywordBtn">Remove by title keyword…</button>
@@ -1793,6 +1794,21 @@
         toast(scoringStop ? `Stopped — scored ${done} of ${targets.length}` : `Scored ${targets.length} job${targets.length===1?"":"s"}`);
     }
 
+    // Wipes the score (and anything derived from it) on un-categorized "new" jobs
+    // so "Score all" will pick them up again — e.g. after editing the search profile.
+    async function clearNewScores(){
+        const targets = jobs.filter(j=>!j.archived && j.status==="new" && j.fit!=null);
+        if(!targets.length){ toast("No scored jobs on New"); return; }
+        if(!confirm(`Clear the score on ${targets.length} New job${targets.length===1?"":"s"}? The scores and feedback are deleted, not archived. Then use Score all to rescore.`)) return;
+        for(const j of targets){
+            j.fit=null; j.why=""; j.feedback=null; j.scoredAt=null;
+            j.resumeId=null; j.resumeFilename=null; j.improvements=null;
+            await upsertJob(j);
+        }
+        render();
+        toast(`Cleared ${targets.length} score${targets.length===1?"":"s"} — run Score all to rescore`);
+    }
+
     async function removeLowScores(){
         const targets = jobs.filter(j=>!j.archived && j.fit!=null && j.fit<lowScoreThreshold && !isProtectedStatus(j));
         if(!targets.length){ toast("No low-scoring jobs to remove"); return; }
@@ -1871,6 +1887,7 @@
     }
 
     $("#scoreAllBtn").onclick     = scoreAllUnscored;
+    $("#clearScoresBtn").onclick  = clearNewScores;
     $("#removeLowBtn").onclick    = removeLowScores;
     $("#removeSeniorBtn").onclick  = removeSeniorRoles;
     $("#removeKeywordBtn").onclick = removeByTitleKeyword;
