@@ -272,6 +272,12 @@ async function hnWhoIsHiring(){
     }catch(e){ console.error("[fetch-jobs] hn who-is-hiring failed:", e.message); return []; }
 }
 
+// Per-call limits keep the response well under Netlify's ~6 MB cap
+// (descriptions run up to DESC_CAP chars each).
+const BOARD_CHUNK = 10;
+const CHUNK_RESULT_CAP = 150;
+const LEGACY_RESULT_CAP = 80;
+
 export async function handler(event){
     let body = {};
     try{ body = JSON.parse(event?.body || "{}"); }catch(e){ /* ignore, use defaults */ }
@@ -282,19 +288,35 @@ export async function handler(event){
     const lvCos=(process.env.LEVER_COMPANIES||"").split(",").map(s=>s.trim()).filter(Boolean);
     const ashbyCos=(process.env.ASHBY_COMPANIES||"").split(",").map(s=>s.trim()).filter(Boolean);
 
+    // Chunked mode (the app's pull): body.sources picks source groups and, for
+    // the board-list groups, body.offset picks a BOARD_CHUNK-sized slice of boards;
+    // meta.next tells the app where to continue. With no body.sources, every
+    // source runs in one call, as before.
+    const wanted = Array.isArray(body.sources) && body.sources.length ? body.sources : null;
+    const offset = Number.isInteger(body.offset) && body.offset > 0 ? body.offset : 0;
+    const want = g => !wanted || wanted.includes(g);
+    const pick = list => wanted ? list.slice(offset, offset + BOARD_CHUNK) : list;
+    const lists = { greenhouse:ghBoards, lever:lvCos, ashby:ashbyCos };
+    const nextGroup = wanted && Object.keys(lists).find(g=>wanted.includes(g));
+    const next = nextGroup && offset + BOARD_CHUNK < lists[nextGroup].length ? offset + BOARD_CHUNK : null;
+
     const batches = await Promise.all([
-        ...ghBoards.map(greenhouse),
-        ...lvCos.map(lever),
-        ...ashbyCos.map(ashby),
-        usajobs(),
-        adzuna(),
-        ...(hnEnabled() ? [hnYcJobs(), hnWhoIsHiring()] : [])
+        ...(want("greenhouse") ? pick(ghBoards).map(greenhouse) : []),
+        ...(want("lever") ? pick(lvCos).map(lever) : []),
+        ...(want("ashby") ? pick(ashbyCos).map(ashby) : []),
+        ...(want("usajobs") ? [usajobs()] : []),
+        ...(want("adzuna") ? [adzuna()] : []),
+        ...(want("hn") && hnEnabled() ? [hnYcJobs(), hnWhoIsHiring()] : [])
     ]);
 
     const rawCount = batches.reduce((n,b)=>n+b.length, 0);
-    let jobs = batches.flat()
-        .filter(j => titleMatches(j.title, titleKeywords) && locMatches(j.location, locationKeywords) && withinExperienceCap(j.description));
-    console.log(`[fetch-jobs] ${rawCount} raw results from all sources, ${jobs.length} matched title/location keywords`);
+    const matched = batches.map(b=>b.filter(j => titleMatches(j.title, titleKeywords) && locMatches(j.location, locationKeywords) && withinExperienceCap(j.description)));
+    // Round-robin across sources: the response is capped at 80, so a plain flat()
+    // would let the first sources fill it and starve the later ones (HN, Adzuna).
+    let jobs = [];
+    for(let i=0; matched.some(b=>i<b.length); i++) matched.forEach(b=>{ if(i<b.length) jobs.push(b[i]); });
+    const bySource = {}; jobs.forEach(j=>{ bySource[j.source] = (bySource[j.source]||0)+1; });
+    console.log(`[fetch-jobs] ${rawCount} raw results from all sources, ${jobs.length} matched title/location keywords`, JSON.stringify(bySource));
 
     jobs.forEach(j=>{ j.track = classifyTrack(j.title); });
 
@@ -302,9 +324,11 @@ export async function handler(event){
     const seen=new Set();
     jobs = jobs.filter(j=>{ const k=j.url||j.title+j.company; if(seen.has(k))return false; seen.add(k); return true; });
 
+    const cap = wanted ? CHUNK_RESULT_CAP : LEGACY_RESULT_CAP;
+    const headers = { "Content-Type":"application/json", "Access-Control-Allow-Origin":"*" };
+    if(!wanted) return { statusCode:200, headers, body: JSON.stringify(jobs.slice(0,cap)) };
     return {
-        statusCode:200,
-        headers:{ "Content-Type":"application/json", "Access-Control-Allow-Origin":"*" },
-        body: JSON.stringify(jobs.slice(0,80))
+        statusCode:200, headers,
+        body: JSON.stringify({ jobs: jobs.slice(0,cap), meta:{ next, truncated: Math.max(0, jobs.length-cap) } })
     };
 }

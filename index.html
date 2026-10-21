@@ -1671,6 +1671,26 @@
        FEED PULL
        ============================================================ */
     const FEED_ENDPOINT = "/.netlify/functions/fetch-jobs";
+    // The pull is split into one request per source group (and, for the board-list
+    // groups, one per slice of boards via meta.next) so no single call runs long
+    // or returns a huge payload. Mirrors the groups in fetch-jobs.js.
+    const FEED_GROUPS = ["greenhouse","lever","ashby","usajobs","adzuna","hn"];
+    async function fetchFeedGroup(group, filters){
+        const jobs=[]; let offset=0, truncated=0;
+        while(offset!==null){
+            const res=await fetch(FEED_ENDPOINT, {
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({ ...filters, sources:[group], offset })
+            });
+            if(!res.ok) throw new Error(`${group} HTTP ${res.status}`);
+            const data=await res.json();
+            jobs.push(...(data.jobs||[]));
+            truncated += data.meta?.truncated||0;
+            offset = data.meta?.next ?? null;
+        }
+        return { jobs, truncated };
+    }
     async function pullFeed(){
         if(!feedConfigured()){ toast("No feed sources configured — set GREENHOUSE_BOARDS, LEVER_COMPANIES, etc. in Netlify (see .env.example)"); return; }
         toast("Pulling feed…");
@@ -1678,16 +1698,14 @@
             const settings = await loadSettings();
             const titleKeywords    = settings.title_keywords?.length    ? settings.title_keywords    : DEFAULT_TITLE_KEYWORDS;
             const locationKeywords = settings.location_keywords?.length ? settings.location_keywords : DEFAULT_LOCATION_KEYWORDS;
-            const res=await fetch(FEED_ENDPOINT, {
-                method:"POST",
-                headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({ titleKeywords, locationKeywords })
-            });
-            const items=await res.json();
+            const failed=[]; let truncated=0;
+            const results=await Promise.all(FEED_GROUPS.map(g=>
+                fetchFeedGroup(g, { titleKeywords, locationKeywords }).catch(e=>{ failed.push(g); console.warn("[feed]", e); return { jobs:[], truncated:0 }; })));
+            const list=results.flatMap(r=>{ truncated+=r.truncated; return r.jobs; });
+            if(failed.length===FEED_GROUPS.length) throw new Error("all feed groups failed");
             const byKey={};
             jobs.forEach(j=>{ byKey[j.url||(j.title+j.company)]=j; });
             let added=0, revived=0;
-            const list = Array.isArray(items) ? items : (items.jobs||[]);
             for(const it of list){
                 const key=it.url||(it.title+it.company);
                 const existing=byKey[key];
@@ -1738,7 +1756,8 @@
             }
             closeModals(); render();
             const parts=[]; if(added) parts.push(`${added} new`); if(revived) parts.push(`${revived} reposted`);
-            toast(parts.length ? `Added ${parts.join(", ")} roles` : "Feed is up to date");
+            const notes=[]; if(truncated) notes.push(`${truncated} more matched but were cut off`); if(failed.length) notes.push(`failed: ${failed.join(", ")}`);
+            toast((parts.length ? `Added ${parts.join(", ")} roles` : "Feed is up to date") + (notes.length ? ` (${notes.join("; ")})` : ""));
         }catch(e){ toast("Couldn't reach the feed endpoint"); console.warn(e); }
     }
 
