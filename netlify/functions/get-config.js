@@ -23,7 +23,8 @@ export async function handler() {
     const features = {
         scoring: !!env.ANTHROPIC_API_KEY,
         feed: !!(env.GREENHOUSE_BOARDS || env.LEVER_COMPANIES || env.ASHBY_COMPANIES ||
-                 (env.USAJOBS_KEY && env.USAJOBS_EMAIL) || (env.ADZUNA_APP_ID && env.ADZUNA_APP_KEY))
+                 (env.USAJOBS_KEY && env.USAJOBS_EMAIL) || (env.ADZUNA_APP_ID && env.ADZUNA_APP_KEY) ||
+                 /^(1|true|yes|on)$/i.test((env.HN_FEEDS || "").trim()))
     };
 
     return {

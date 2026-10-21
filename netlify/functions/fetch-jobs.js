@@ -14,6 +14,8 @@
 //   USAJOBS_KEY       = your key from developer.usajobs.gov (optional)
 //   USAJOBS_EMAIL     = the email you registered with USAJOBS (required if KEY set)
 //   ADZUNA_APP_ID + ADZUNA_APP_KEY = free keys from developer.adzuna.com (optional)
+//   HN_FEEDS          = "true" to add the Hacker News sources (no key needed):
+//                       YC job ads (jobstories) and the monthly "Who is hiring?" thread
 //
 // Defaults — overridden per-request by whatever the app's Settings →
 // "Feed options" sends (see handler below). These only apply when the
@@ -183,6 +185,89 @@ async function adzuna(){
     }catch(e){ console.error("[fetch-jobs] adzuna failed:", e.message); return []; }
 }
 
+// ─── Hacker News sources (HN_FEEDS=true) ───
+const HN_TIMEOUT_MS = 4000;
+const HN_FETCH_CONCURRENCY = 8;
+const HN_YC_MAX_ITEMS = 60;
+const hnEnabled = () => /^(1|true|yes|on)$/i.test((process.env.HN_FEEDS||"").trim());
+const hnFetch = url => fetch(url, { signal: AbortSignal.timeout(HN_TIMEOUT_MS) });
+
+// Runs fn over items with at most `limit` in flight; keeps result order.
+async function mapLimit(items, limit, fn){
+    const out = new Array(items.length);
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async ()=>{
+        while(next < items.length){ const i = next++; out[i] = await fn(items[i]); }
+    }));
+    return out;
+}
+
+// YC-company job ads from the official HN API (jobstories). Only the API is
+// called: YC's Terms of Use prohibit scraping, so the linked job pages are
+// never fetched. The role is read from the HN title ("<Co> (YC W24) Is Hiring
+// <role>") or, for ycombinator.com job links, from the URL slug
+// (/jobs/<id>-full-stack-engineer). Items naming no role are dropped, since
+// there's nothing to screen. Location and description aren't available, so
+// these are tagged "required reading" - open the link to read the real posting.
+const YC_JOB_SLUG_RE = /^https:\/\/www\.ycombinator\.com\/companies\/[^/]+\/jobs\/[^/-]+-([^/?#]+)/;
+async function hnYcJobs(){
+    try{
+        const ids = (await (await hnFetch("https://hacker-news.firebaseio.com/v0/jobstories.json")).json()).slice(0, HN_YC_MAX_ITEMS);
+        const items = await mapLimit(ids, HN_FETCH_CONCURRENCY, async id=>{
+            try{ return await (await hnFetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)).json(); }
+            catch(e){ return null; }
+        });
+        return items.filter(it=>it && it.title && it.url).map(it=>{
+            const slug = (it.url.match(YC_JOB_SLUG_RE)||[])[1];
+            const title = slug
+                ? slug.replace(/-/g," ")
+                : it.title.replace(/^.*?is hiring\s*(?:an?\s+)?/i,"").trim();
+            if(!title || title===it.title) return null;
+            return {
+                title, company:it.title.replace(/\s*\(YC [^)]*\).*$/i,"").replace(/\s+is hiring.*$/i,"").trim(),
+                location:"", url:it.url, source:"YC (HN)",
+                postedAt:it.time ? new Date(it.time*1000).toISOString() : null,
+                tags:[HN_REQUIRED_READING_TAG],
+                description:`${it.title}
+Posting: ${it.url}
+No job details were fetched (YC's terms prohibit scraping their pages) - open the link to read the full posting.`
+            };
+        }).filter(Boolean);
+    }catch(e){ console.error("[fetch-jobs] hn yc jobs failed:", e.message); return []; }
+}
+
+// Newest "Ask HN: Who is hiring?" thread via Algolia; each top-level comment
+// is one company's post. Comments are free text, so only the first line
+// ("Company | role | location | ...") is parsed. It's used as the title/location
+// for filtering, so a role named only in the body is missed — hence the
+// "required reading" tag: the full post is in the notes but wasn't screened.
+const HN_REQUIRED_READING_TAG = "required reading";
+const hnHtmlToText = html => decodeEntities((html||"").replace(/<[^>]+>/g," ")).replace(/[ \t]+/g," ").replace(/ ?\n ?/g,"\n").trim();
+async function hnWhoIsHiring(){
+    try{
+        const found = await (await hnFetch("https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=5")).json();
+        const thread = (found.hits||[]).find(h=>/^Ask HN: Who is hiring\?/i.test(h.title||""));
+        if(!thread) return [];
+        // Comment search, not /items: the thread endpoint is 3-10s, this is ~1s.
+        // parent_id filter = top-level posts only (replies excluded).
+        const data = await (await hnFetch(`https://hn.algolia.com/api/v1/search_by_date?tags=comment,story_${thread.objectID}`+
+            `&numericFilters=parent_id=${thread.objectID}&hitsPerPage=1000&attributesToRetrieve=objectID,comment_text,created_at&attributesToHighlight=none`)).json();
+        return (data.hits||[]).filter(c=>c.comment_text).map(c=>{
+            const header = hnHtmlToText(c.comment_text.split(/<p>/i)[0]);
+            const parts = header.split(/\s*[|—–]\s*/).map(s=>s.trim()).filter(Boolean);
+            return {
+                title:(parts.length>1 ? parts.slice(1).join(" | ") : header).slice(0,200),
+                company:(parts[0]||"").slice(0,80),
+                location:header,
+                url:`https://news.ycombinator.com/item?id=${c.objectID}`, source:"HN Who's Hiring",
+                postedAt:c.created_at||null,
+                tags:[HN_REQUIRED_READING_TAG],
+                description:hnHtmlToText(c.comment_text.replace(/<p>/gi,"\n")).slice(0,DESC_CAP)
+            };
+        }).filter(j=>j.title);
+    }catch(e){ console.error("[fetch-jobs] hn who-is-hiring failed:", e.message); return []; }
+}
+
 export async function handler(event){
     let body = {};
     try{ body = JSON.parse(event?.body || "{}"); }catch(e){ /* ignore, use defaults */ }
@@ -198,7 +283,8 @@ export async function handler(event){
         ...lvCos.map(lever),
         ...ashbyCos.map(ashby),
         usajobs(),
-        adzuna()
+        adzuna(),
+        ...(hnEnabled() ? [hnYcJobs(), hnWhoIsHiring()] : [])
     ]);
 
     const rawCount = batches.reduce((n,b)=>n+b.length, 0);

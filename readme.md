@@ -38,7 +38,7 @@ in the Supabase SQL editor *before* deploying, or job saves will fail.
 | Jobs, notes, scores | Supabase `jobs` table (local mode: browser localStorage) |
 | Profile, resume text, score threshold, **feed title/location keywords** | Supabase `settings` table, single row `id=1` |
 | Resume files | Supabase Storage, private `resumes` bucket |
-| Secrets and source config: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `SUPABASE_*`, `GREENHOUSE_BOARDS`, `LEVER_COMPANIES`, `ASHBY_COMPANIES`, `USAJOBS_*`, `ADZUNA_*` | Netlify environment variables (never in the DB) |
+| Secrets and source config: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `SUPABASE_*`, `GREENHOUSE_BOARDS`, `LEVER_COMPANIES`, `ASHBY_COMPANIES`, `USAJOBS_*`, `ADZUNA_*`, `HN_FEEDS` | Netlify environment variables (never in the DB) |
 | Default keywords, search terms, experience cap | In code: `netlify/functions/fetch-jobs.js` |
 
 ---
@@ -153,6 +153,7 @@ USAJOBS_KEY       = <key from developer.usajobs.gov>
 USAJOBS_EMAIL     = <email you registered with USAJOBS>
 ADZUNA_APP_ID     = <from developer.adzuna.com>
 ADZUNA_APP_KEY    = <from developer.adzuna.com>
+HN_FEEDS          = true   # optional: Hacker News sources, no key needed
 ```
 
 **Finding board tokens:** If a company uses Greenhouse, their careers page URL will contain
@@ -173,6 +174,12 @@ in Settings). Your title/location keyword lists are saved to the database and **
 defaults in `fetch-jobs.js` (`DEFAULT_TITLE_KEYWORDS`, `DEFAULT_LOCATION_KEYWORDS`). If you change
 the defaults in code and nothing changes in your feed, your saved list is still the old one:
 edit it in Feed options, or reset it with `update settings set title_keywords = '[]';`.
+
+`HN_FEEDS=true` adds two Hacker News sources, both using only HN/Algolia APIs (YC's Terms of Use prohibit
+scraping ycombinator.com, so its pages are never fetched): YC company job ads (the `jobstories` feed) and the
+monthly "Ask HN: Who is hiring?" thread. Both are tagged `required reading` — YC ads carry only a title/link
+(role taken from the HN title or URL), and Who-is-hiring posts are free text screened on their first line only
+(full post kept in the job notes). Click the `required reading` tag to see just these and read them in one sitting.
 
 USAJOBS and Adzuna run one search per term in `SEARCH_QUERIES` (top of the sources section in
 `fetch-jobs.js`); results are then filtered by your title keywords.
