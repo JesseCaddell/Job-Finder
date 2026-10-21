@@ -490,8 +490,21 @@
                 return;
             }
 
+            // Same storage adapter as src/lib/authStorage.js: the new sign-in page
+            // stores the session in sessionStorage when "Stay signed in" is off,
+            // and this page has to look there too. Delete with legacy.html.
+            const safe = fn => { try { return fn(); } catch(e) { return null; } };
+            const remember = () => safe(()=>localStorage.getItem("pipeline_remember")) !== "0";
+            const authStorage = {
+                getItem: k => safe(()=>sessionStorage.getItem(k)) ?? safe(()=>localStorage.getItem(k)),
+                setItem: (k,v) => {
+                    const [keep, drop] = remember() ? [localStorage, sessionStorage] : [sessionStorage, localStorage];
+                    safe(()=>keep.setItem(k,v)); safe(()=>drop.removeItem(k));
+                },
+                removeItem: k => { safe(()=>localStorage.removeItem(k)); safe(()=>sessionStorage.removeItem(k)); }
+            };
             SB = supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, {
-                auth: { persistSession: true, autoRefreshToken: true }
+                auth: { persistSession: true, autoRefreshToken: true, storage: authStorage }
             });
             SHARED_MODE = true;
             console.info("[config] Shared mode active — Supabase connected.");
@@ -844,8 +857,9 @@
     function showGate(){
         hideLoading();
         if(SHARED_MODE){
-            $("#supaGate").classList.remove("hidden");
-            $("#localGate").classList.add("hidden");
+            // Shared-mode sign-in now lives in the React app (/login).
+            location.replace("/login");
+            return;
         } else {
             const sel=$("#g_user");
             sel.innerHTML = S.members.map(m=>`<option>${esc(m)}</option>`).join("");

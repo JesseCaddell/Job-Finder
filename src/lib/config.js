@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { authStorage } from "./authStorage.js";
 
 /* CONFIG is loaded from /.netlify/functions/get-config at boot.
    Nothing sensitive lives in the source — keys stay in Netlify env vars. */
@@ -38,7 +39,7 @@ async function fetchConfig() {
         }
 
         SB = createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, {
-            auth: { persistSession: true, autoRefreshToken: true }
+            auth: { persistSession: true, autoRefreshToken: true, storage: authStorage }
         });
         SHARED_MODE = true;
         console.info("[config] Shared mode active — Supabase connected.");
