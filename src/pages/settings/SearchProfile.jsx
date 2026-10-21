@@ -5,7 +5,6 @@ import { useToast } from "../../components/Toast.jsx";
 import { loadSettings, saveSettings, clearLocalState, getLocalState, saveLocalState } from "../../lib/data.js";
 import { DEFAULT_LOW_SCORE_THRESHOLD } from "../../lib/defaults.js";
 import { signOutEverywhere } from "../../lib/auth.js";
-import { LEGACY_URL } from "../../lib/session.js";
 import ProfileCard from "./ProfileCard.jsx";
 import ResumesCard from "./ResumesCard.jsx";
 import LocalTeamCard from "./LocalTeamCard.jsx";
@@ -52,7 +51,7 @@ export default function SearchProfile() {
         } else {
             if (!window.confirm("Erase all jobs, settings, and sign-in on this device?")) return;
             clearLocalState();
-            window.location.replace(LEGACY_URL);
+            window.location.replace("/");   // full reload so every module drops its cached state
         }
     };
 

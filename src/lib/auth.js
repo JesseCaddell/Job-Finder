@@ -2,7 +2,7 @@ import { SB } from "./config.js";
 import { setRemember } from "./authStorage.js";
 
 /* Thin wrappers over supabase.auth that normalize errors to { error: string }.
-   Shared mode only — local mode has its own passcode gate in legacy.html. */
+   Shared mode only — local mode has its own passcode page (pages/LocalLogin.jsx). */
 
 export async function signInWithPassword(email, password, remember) {
     setRemember(remember);   // must be set first so the new session is stored where the user chose

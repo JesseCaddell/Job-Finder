@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { loadConfig, SB, SHARED_MODE } from "../lib/config.js";
 import { displayName, signOut as supaSignOut } from "../lib/auth.js";
-import { clearLocalSession, getLocalSession, LEGACY_URL } from "../lib/session.js";
+import { clearLocalSession, getLocalSession, saveLocalSession } from "../lib/session.js";
 
 const AppContext = createContext(null);
 
@@ -16,6 +16,7 @@ export function AppProvider({ children }) {
     const [ready, setReady] = useState(false);
     const [sharedMode, setSharedMode] = useState(false);
     const [user, setUser] = useState(null);
+    const [localSession, setLocalSession] = useState(() => getLocalSession());
 
     useEffect(() => {
         let alive = true;
@@ -46,22 +47,25 @@ export function AppProvider({ children }) {
     if (ready) {
         if (sharedMode) {
             if (user) account = { name: displayName(user), id: user.id };
-        } else {
-            const local = getLocalSession();
-            if (local) account = { name: local.user };
+        } else if (localSession) {
+            account = { name: localSession.user };
         }
     }
 
     // Shared mode: the auth listener above clears `user`, which sends routes
-    // to /login. Local mode: drop the session and let the legacy gate take over.
+    // to /login. Local mode: drop the session, which sends routes to /local-login.
     const signOut = useCallback(async () => {
         if (SHARED_MODE) { await supaSignOut(); return; }
         clearLocalSession();
-        window.location.replace(LEGACY_URL);
+        setLocalSession(null);
+    }, []);
+
+    const signInLocal = useCallback((name, remember) => {
+        setLocalSession(saveLocalSession(name, remember));
     }, []);
 
     return (
-        <AppContext.Provider value={{ ready, sharedMode, user, account, signOut }}>
+        <AppContext.Provider value={{ ready, sharedMode, user, account, signOut, signInLocal }}>
             {children}
         </AppContext.Provider>
     );

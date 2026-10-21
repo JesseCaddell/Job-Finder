@@ -1,20 +1,12 @@
-import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useApp } from "../context/AppContext.jsx";
-import { LEGACY_URL } from "../lib/session.js";
+import { LOCAL_LOGIN_PATH } from "../lib/session.js";
 
-/* Gate for signed-in pages. Shared mode sends visitors to /login. Local mode
-   has no React sign-in yet (its redesign is post-MVP), so a missing local
-   session goes to the passcode gate in legacy.html. */
+/* Gate for signed-in pages: signed-out visitors go to the sign-in page for the
+   current mode (Supabase accounts, or the local passcode gate). */
 export default function RequireAuth({ children }) {
     const { ready, sharedMode, account } = useApp();
-    const toLegacyGate = ready && !sharedMode && !account;
-
-    useEffect(() => {
-        if (toLegacyGate) window.location.replace(LEGACY_URL);
-    }, [toLegacyGate]);
-
-    if (!ready || toLegacyGate) return null;
-    if (!account) return <Navigate to="/login" replace />;
+    if (!ready) return null;
+    if (!account) return <Navigate to={sharedMode ? "/login" : LOCAL_LOGIN_PATH} replace />;
     return children;
 }

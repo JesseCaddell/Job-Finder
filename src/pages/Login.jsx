@@ -15,7 +15,7 @@ export default function Login() {
     const [busy, setBusy] = useState(false);
 
     if (!ready) return null;
-    // Local mode keeps its passcode gate in legacy.html until it is redesigned.
+    // Local mode has its own passcode page; signed-in visitors have no business here.
     if (!sharedMode || user) return <Navigate to="/" replace />;
 
     const submit = async e => {
