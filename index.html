@@ -1766,17 +1766,31 @@
        ============================================================ */
     const sleep = ms => new Promise(r=>setTimeout(r, ms));
 
+    // While a Score-all run is going, the same button becomes "Stop": it sets
+    // scoringStop, which the loop checks between jobs (the job in flight finishes).
+    let scoringActive = false, scoringStop = false;
     async function scoreAllUnscored(){
+        if(scoringActive){ scoringStop = true; toast("Stopping after the current job…"); return; }
         const targets = jobs.filter(j=>!j.archived && j.fit==null);
         if(!targets.length){ toast("Nothing to score — every job already has a fit score"); return; }
         if(!aiConfigured()){ toast(AI_OFF_MSG); return; }
         if(!confirm(`Score ${targets.length} unscored job${targets.length===1?"":"s"}? This calls the AI ${targets.length} time${targets.length===1?"":"s"}.`)) return;
-        for(let i=0;i<targets.length;i++){
-            toast(`Scoring ${i+1}/${targets.length}…`);
-            await scoreFit(targets[i].id);
-            await sleep(350);
+        const btn = $("#scoreAllBtn");
+        scoringActive = true; scoringStop = false;
+        let done = 0;
+        try{
+            for(let i=0;i<targets.length && !scoringStop;i++){
+                btn.textContent = `■ Stop (${i+1}/${targets.length})`;
+                toast(`Scoring ${i+1}/${targets.length}…`);
+                await scoreFit(targets[i].id);
+                done++;
+                await sleep(350);
+            }
+        } finally {
+            scoringActive = false;
+            btn.textContent = "✦ Score all";
         }
-        toast(`Scored ${targets.length} job${targets.length===1?"":"s"}`);
+        toast(scoringStop ? `Stopped — scored ${done} of ${targets.length}` : `Scored ${targets.length} job${targets.length===1?"":"s"}`);
     }
 
     async function removeLowScores(){
