@@ -1,6 +1,21 @@
 [build]
-publish = "."
+command = "npm run build"
+publish = "dist"
 functions = "netlify/functions"
+
+# `netlify dev` proxies the Vite dev server and serves functions alongside it.
+[dev]
+command = "npm run dev:vite"
+targetPort = 5173
+framework = "#custom"
+
+# History API routing: any path that isn't a real file or a function is
+# answered with the app shell. Files in dist (e.g. /legacy.html) and
+# /.netlify/functions/* are matched first, so neither is shadowed.
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
 
 # Prompts shown by the "Deploy to Netlify" button in readme.md.
 # Leave any blank to skip that feature (blank Supabase = local mode).

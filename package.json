@@ -5,10 +5,22 @@
   "main": "index.html",
   "scripts": {
     "dev": "netlify dev",
+    "dev:vite": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "private": true,
   "devDependencies": {
-    "netlify-cli": "^27.0.0"
+    "@vitejs/plugin-react": "^4.7.0",
+    "netlify-cli": "^27.0.0",
+    "vite": "^5.4.21"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "lucide-react": "^1.61.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.6"
   }
 }
