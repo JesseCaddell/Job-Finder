@@ -110,3 +110,16 @@ notify pgrst, 'reload schema';
 
 Then hard-refresh the site and pull the feed again. (The `notify` line forces
 PostgREST to refresh its schema cache so the new column is accepted immediately.)
+
+## Pick up the new default title keywords (associate / junior / role-specific intern)
+
+Only needed after the updated defaults are deployed, and only if the site still
+shows the old keyword list. A saved list in Settings overrides the code defaults;
+an empty one falls back to them. SQL editor → run:
+
+```sql
+update settings set title_keywords = '[]' where id = 1;
+```
+
+Then hard-refresh and open Settings → Feed options. The new chips should appear.
+This discards any hand-edited title keywords, so re-add custom ones afterward.

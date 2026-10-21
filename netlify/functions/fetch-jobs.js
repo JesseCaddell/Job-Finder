@@ -34,7 +34,11 @@ const DEFAULT_TITLE_KEYWORDS = [
     "ai-native","automation engineer","integration engineer",
     "developer experience engineer","dx engineer","internal tools engineer",
     "platform engineer","applied ai engineer","forward deployed engineer",
-    "full-stack engineer","full stack engineer","qa engineer","test automation engineer"
+    "full-stack engineer","full stack engineer","qa engineer","test automation engineer",
+    "associate project manager","associate product manager","associate program manager","associate product owner",
+    "associate analyst","associate systems analyst","associate technical consultant","associate solutions engineer",
+    "junior project manager","junior analyst","entry level","new grad",
+    "project management intern","product management intern","program management intern","software engineering intern"
 ];
 const DEFAULT_LOCATION_KEYWORDS = ["washington","new york","california"];
 
