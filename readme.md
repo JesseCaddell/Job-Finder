@@ -18,9 +18,9 @@ Two modes, zero build step, one HTML file.
 
 ## PM vs Dev resumes
 
-Upload one resume per track in Settings ("Upload as" PM or Dev). Every job gets a track when it
+Upload one resume per track in Settings → Search profile & resumes ("Classify as" PM or Dev). Every job gets a track when it
 enters the board: the feed tags it from the title (`classifyTrack` in `fetch-jobs.js`, mirrored in
-`index.html`), manual adds are tagged on save, and existing jobs are tagged once on first load.
+`src/lib/tracks.js`), manual adds are tagged on save, and existing jobs are tagged once on first load.
 Scoring uses the active (newest) resume for the job's track. Titles that look like both (e.g.
 "Software Engineering Manager") are scored with whichever resume shares more keywords with the
 posting. Wrong guess? Click the PM/Dev badge on the card to switch it. Titles matching neither list
@@ -70,10 +70,9 @@ instead of failing.
 
 ## Running it locally
 
-Opening `index.html` directly works for browsing the board, but the
-Netlify functions (`Pull feed now`, `Score fit`, feed options) only exist
-once something is serving `/.netlify/functions/*`. Use Netlify's own dev
-server for that:
+The app is a Vite + React build, so it can't be opened as a plain file.
+`npm run dev` runs Vite behind Netlify's dev server, which also serves
+`/.netlify/functions/*` (`Pull feed now`, `Score fit`, the Supabase config):
 
 ```
 cp .env.example .env    # then fill in the values you have
@@ -82,8 +81,12 @@ npm run dev
 ```
 
 This starts a local server (prints the URL, e.g. `http://localhost:8888`)
-serving `index.html` and all four functions together, matching what
-Netlify runs in production — no site linking required for local testing.
+serving the app and all four functions together, matching what Netlify
+runs in production — no site linking required for local testing.
+
+`npm run dev:vite` runs Vite alone: the app loads, but without the
+functions it falls back to local mode and Pull feed / AI scoring won't work.
+`npm run build` writes the production build to `dist/`.
 
 ---
 
@@ -135,7 +138,7 @@ SUPABASE_URL      = https://YOUR-PROJECT.supabase.co   # Project URL
 SUPABASE_ANON_KEY = eyJ...                              # anon public key
 ```
 
-`get-config.js` serves them to the browser at boot — no keys in `index.html`.
+`get-config.js` serves them to the browser at boot — no keys in the front-end source.
 
 Redeploy. The login screen will switch to email + password automatically.
 
@@ -169,11 +172,10 @@ than an error. Build a list of ~15–20 target employers; quality beats volume.
 Then in the app: Settings → paste your feed URL:
 `https://YOUR-SITE.netlify.app/.netlify/functions/fetch-jobs` → Pull feed now.
 
-Tune what comes in with **Feed options** (the link next to "Pull feed now" on the main page, not
-in Settings). Your title/location keyword lists are saved to the database and **override** the
+Tune what comes in under **Settings → Feed preferences** (title keywords, allowed locations). Your title/location keyword lists are saved to the database and **override** the
 defaults in `fetch-jobs.js` (`DEFAULT_TITLE_KEYWORDS`, `DEFAULT_LOCATION_KEYWORDS`). If you change
 the defaults in code and nothing changes in your feed, your saved list is still the old one:
-edit it in Feed options, or reset it with `update settings set title_keywords = '[]';`.
+edit it in Feed preferences, or reset it with `update settings set title_keywords = '[]';`.
 
 `HN_FEEDS=true` adds two Hacker News sources, both using only HN/Algolia APIs (YC's Terms of Use prohibit
 scraping ycombinator.com, so its pages are never fetched): YC company job ads (the `jobstories` feed) and the
@@ -218,13 +220,21 @@ are open to anyone who finds the URL — rely on the spend limit.
 
 ```
 the-pipeline/
-├── index.html                      ← the entire app (no build step)
-├── netlify.toml                    ← functions dir
+├── index.html                      ← Vite entry point
+├── vite.config.mjs
+├── netlify.toml                    ← build (npm run build → dist/), functions dir, SPA redirect
 ├── .env.example                    ← every env var the app reads
 ├── supabase-schema.sql             ← run once in Supabase SQL editor
 ├── README.md                       ← this file
 ├── docs/
-│   └── user_commands.md            ← migrations for existing databases
+│   └── user_commands.md            ← migrations + dashboard steps for existing setups
+├── src/
+│   ├── main.jsx, App.jsx           ← router: /login, /board, /archive, /settings/…
+│   ├── context/                    ← AppContext (config + session), JobsContext (board data)
+│   ├── components/                 ← app shell/nav, modal, toast, shared UI
+│   ├── pages/                      ← Login, LocalLogin, board/, archive/, settings/
+│   ├── lib/                        ← data layer, scoring, feed pull, resumes, tracks, keywords
+│   └── styles/                     ← design tokens + shared styles (from the Figma file)
 └── netlify/
     ├── functions/
     │   ├── get-config.js           ← serves Supabase URL + anon key to the browser

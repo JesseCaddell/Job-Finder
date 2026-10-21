@@ -93,7 +93,7 @@ const withinExperienceCap = description => {
 // Which of the user's resumes should score this job: "pm", "dev", or "unsure"
 // (title looks like both — the app then picks whichever resume has more
 // keyword overlap with the posting). A title matching neither defaults to
-// "pm". Kept in sync with classifyTrack() in index.html, which tags
+// "pm". Kept in sync with classifyTrack() in src/lib/tracks.js, which tags
 // manually added jobs the same way.
 const DEV_TITLE_RE = /\b(software|developer|devops|sre|site reliability|full[- ]?stack|front[- ]?end|back[- ]?end|engineer|programmer|sdet|qa|automation|platform|architect)\b/i;
 const PM_TITLE_RE  = /\b(project|product|program|scrum|agile|delivery|release|coordinator|analyst|consultant|operations|techops|owner|manager|implementation)\b/i;
