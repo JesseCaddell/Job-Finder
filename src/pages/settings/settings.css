@@ -1,0 +1,75 @@
+.settings { display: flex; align-items: flex-start; gap: 48px; padding: 40px 48px 48px; }
+
+/* ---- sidebar ---- */
+.settings-nav { flex: none; width: 220px; display: flex; flex-direction: column; gap: 28px; }
+.settings-nav-heading { display: flex; flex-direction: column; gap: 6px; }
+.settings-nav-heading h2 { font-size: 30px; font-weight: 400; line-height: 1.5; color: var(--ink); }
+.settings-nav-heading p { font-size: 13px; color: var(--ink-soft); }
+.settings-sections { display: flex; flex-direction: column; gap: 6px; }
+.settings-link {
+    display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: var(--radius);
+    font-size: 13px; color: var(--ink-soft); text-decoration: none;
+}
+.settings-link:hover { background: var(--chip); }
+.settings-link.active { background: var(--accent-tint); color: var(--accent-ink); font-weight: 600; }
+.settings-rule { width: 100%; height: 1px; margin: 0; border: none; background: var(--line); }
+.settings-privacy { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+
+/* ---- content column ---- */
+.settings-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+
+/* ---- search background ---- */
+.background-block { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); }
+.background-block p { font-size: 14px; color: var(--ink); }
+.background-foot { display: flex; align-items: flex-start; justify-content: space-between; font-size: 11px; color: var(--ink-soft); }
+.icon-btn { display: grid; place-items: center; color: var(--ink-soft); }
+.icon-btn:hover { color: var(--ink); }
+
+/* ---- resumes ---- */
+.resume-import { display: flex; align-items: stretch; gap: 12px; }
+.resume-drop {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 20px;
+    border: 1px dashed #cacbc7; border-radius: var(--radius); text-align: center; cursor: pointer;
+}
+.resume-drop.drag, .resume-drop:hover { border-color: var(--accent); background: var(--accent-tint); }
+.resume-drop svg { color: var(--ink-soft); }
+.resume-drop strong { font-size: 13px; font-weight: 600; color: var(--ink); }
+.resume-drop small { font-size: 11px; color: var(--ink-soft); }
+.resume-drop input[type=file] { display: none; }
+.classify { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+.resume-paste { flex: none; width: 260px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 20px; background: var(--bg); border-radius: var(--radius); }
+.resume-paste strong { font-size: 14px; font-weight: 600; color: var(--ink); }
+.resume-paste p { font-size: 12px; color: var(--ink-soft); }
+.upload-status { font-size: 12px; color: var(--ink-soft); }
+.upload-status.ok { color: var(--green); font-weight: 600; }
+
+.resume-list { display: flex; flex-direction: column; }
+.resume-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.resume-row > svg { flex: none; color: var(--ink-soft); }
+.resume-identity { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.resume-identity span.name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--ink); }
+.text-link { font-size: 12px; font-weight: 600; color: var(--accent-ink); }
+.text-link:hover { text-decoration: underline; }
+.hint { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-soft); }
+.hint svg { flex: none; }
+
+/* ---- threshold ---- */
+.threshold { display: flex; align-items: center; gap: 24px; }
+.threshold .field { flex: none; width: 100px; }
+.threshold .field label { white-space: nowrap; }
+.threshold p { flex: 1; font-size: 13px; color: var(--ink-soft); }
+.threshold .input { min-height: 44px; }
+
+/* ---- local-mode team ---- */
+.member-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: 13px; }
+.member-row .avatar { background: var(--ink); color: #fff; width: 28px; height: 28px; font-size: 11px; }
+.member-row span.name { flex: 1; }
+.member-add { display: flex; gap: 8px; }
+.member-add .input { flex: 1; }
+
+/* ---- save row + danger zone ---- */
+.save-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--ink-soft); }
+.danger { display: flex; align-items: center; gap: 24px; padding: 24px; border: 1px solid var(--red-line); border-radius: var(--radius-lg); }
+.danger-copy { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.danger-copy strong { font-size: 15px; font-weight: 600; color: var(--red); }
+.danger-copy p { font-size: 13px; color: var(--ink-soft); }
