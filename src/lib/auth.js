@@ -36,5 +36,9 @@ export async function signOut() {
     await SB.auth.signOut();
 }
 
+export async function signOutEverywhere() {
+    await SB.auth.signOut({ scope: "global" });
+}
+
 export const displayName = user =>
     user?.user_metadata?.name || user?.email?.split("@")[0] || "";

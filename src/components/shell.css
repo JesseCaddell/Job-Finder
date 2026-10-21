@@ -1,0 +1,30 @@
+.shell { min-height: 100vh; background: var(--bg); }
+
+.nav {
+    display: flex; align-items: center; gap: 58px; height: 80px; padding: 0 48px;
+    background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.nav-items { flex: 1; display: flex; gap: 8px; }
+.nav-item {
+    display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: var(--radius);
+    font-size: 13px; font-weight: 500; color: var(--ink-soft); text-decoration: none;
+}
+.nav-item:hover { background: var(--bg); }
+.nav-item.active { background: var(--accent-tint); color: var(--accent-ink); font-weight: 600; }
+
+.account { position: relative; }
+.account-btn { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink); }
+.avatar {
+    display: grid; place-items: center; width: 32px; height: 32px; border-radius: 100px;
+    background: var(--chip); font-size: 12px; font-weight: 600; color: var(--ink);
+}
+.account-menu {
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; min-width: 160px; padding: 6px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(32, 43, 60, .12);
+}
+.account-menu button {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border-radius: var(--radius-sm);
+    font-size: 13px; color: var(--ink); text-align: left;
+}
+.account-menu button:hover { background: var(--bg); }
