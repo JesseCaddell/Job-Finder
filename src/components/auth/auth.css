@@ -5,10 +5,6 @@
     flex: 0 0 656px; display: flex; flex-direction: column; justify-content: space-between;
     padding: 64px; background: var(--surface-warm); border-right: 1px solid var(--line);
 }
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-mark { width: 9px; height: 24px; border-radius: 2px; background: var(--accent); }
-.brand-name { font-weight: 700; font-size: 27px; line-height: 1.5; color: var(--ink); }
-.eyebrow { font-size: 11px; font-weight: 700; color: var(--accent-ink); letter-spacing: 0; }
 .auth-promise { display: flex; flex-direction: column; gap: 30px; }
 .auth-headline { font-size: 60px; font-weight: 400; line-height: 1.1; color: var(--ink); }
 .auth-lede { font-size: 17px; color: var(--ink-soft); }
@@ -33,28 +29,7 @@
 .auth-heading .eyebrow { font-size: 11px; color: var(--accent-ink); }
 .auth-fields { display: flex; flex-direction: column; gap: 20px; }
 
-.field { display: flex; flex-direction: column; gap: 7px; }
-.field label { font-size: 13px; font-weight: 600; color: var(--ink); }
-.input {
-    display: flex; align-items: center; min-height: 44px; padding: 0 14px;
-    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-}
-.input:focus-within { border-color: var(--ink-soft); }
-.input-tall { height: 48px; justify-content: space-between; }
-.input input { flex: 1; min-width: 0; border: none; outline: none; background: none; height: 100%; font-size: 14px; }
-.input input::placeholder { color: var(--ink-soft); }
-.eye { display: grid; place-items: center; color: var(--ink-soft); }
-.eye:hover { color: var(--ink); }
-
 .auth-row { display: flex; align-items: center; justify-content: space-between; }
-.check { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink); cursor: pointer; }
-.check input { position: absolute; opacity: 0; width: 18px; height: 18px; margin: 0; cursor: pointer; }
-.check-box {
-    display: grid; place-items: center; flex: none; width: 18px; height: 18px;
-    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 4px; color: transparent;
-}
-.check input:checked + .check-box { background: var(--ink); border-color: var(--ink); color: #fff; }
-.check input:focus-visible + .check-box { outline: 2px solid var(--accent); outline-offset: 2px; }
 .auth-link { font-size: 13px; font-weight: 600; color: var(--accent-ink); text-decoration: none; }
 .auth-link:hover { text-decoration: underline; }
 

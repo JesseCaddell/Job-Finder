@@ -1,4 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
+import Brand from "../Brand.jsx";
 import "./auth.css";
 
 const STEPS = [
@@ -6,15 +7,6 @@ const STEPS = [
     { n: "02", title: "Find your fit", desc: "Scored against your background and resume",  color: "var(--blue)" },
     { n: "03", title: "Move forward", desc: "Every application, one organized board",     color: "var(--green)" }
 ];
-
-export function Brand() {
-    return (
-        <div className="brand">
-            <span className="brand-mark" />
-            <span className="brand-name serif">The Pipeline</span>
-        </div>
-    );
-}
 
 /* Split layout shared by sign in, forgot password, and the set-password
    pages: editorial welcome on the left, the form on the right. */
