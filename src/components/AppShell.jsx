@@ -7,9 +7,8 @@ import { initials } from "../lib/format.js";
 import { LEGACY_URL } from "../lib/session.js";
 import "./shell.css";
 
-/* Top navigation shared by every signed-in page. Board and Archive still live
-   in the original app until their pages are migrated, so they are plain links;
-   Settings is a React route. */
+/* Top navigation shared by every signed-in page. Archive still lives in the
+   original app until its page is migrated, so it is a plain link. */
 function AccountMenu() {
     const { account, signOut } = useApp();
     const [open, setOpen] = useState(false);
@@ -44,7 +43,9 @@ export default function AppShell() {
             <header className="nav">
                 <Brand />
                 <nav className="nav-items" aria-label="Workspace">
-                    <a className="nav-item" href={LEGACY_URL}><LayoutDashboard size={17} /> Board</a>
+                    <NavLink className={({ isActive }) => "nav-item" + (isActive ? " active" : "")} to="/board">
+                        <LayoutDashboard size={17} /> Board
+                    </NavLink>
                     <a className="nav-item" href={LEGACY_URL + "#archived"}><Archive size={17} /> Archive</a>
                     <NavLink className={({ isActive }) => "nav-item" + (isActive ? " active" : "")} to="/settings">
                         <Settings2 size={17} /> Settings
