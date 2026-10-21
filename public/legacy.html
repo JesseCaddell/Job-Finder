@@ -941,6 +941,8 @@
 
         // Show app
         $("#app").classList.remove("hidden");
+        // The React nav links Archive here as /legacy.html#archived.
+        if(location.hash==="#archived"){ filter.archived = true; filter.stage = null; }
         render();
     }
 
@@ -1607,7 +1609,10 @@
     /* ============================================================
        SETTINGS
        ============================================================ */
-    $("#openSettings").onclick = async ()=>{
+    // Settings moved to the React app (/settings/profile). The modal below is
+    // no longer reachable and goes away with legacy.html.
+    $("#openSettings").onclick = ()=>{ location.href = "/settings/profile"; };
+    const openSettingsModal = async ()=>{
         const settings = await loadSettings();
         $("#s_profile").value = settings.profile || DEFAULT_PROFILE;
         $("#s_resume").value  = settings.resume  || "";
