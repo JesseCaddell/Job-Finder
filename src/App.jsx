@@ -9,6 +9,8 @@ import ForgotPassword from "./pages/ForgotPassword.jsx";
 import SetPassword from "./pages/SetPassword.jsx";
 import SettingsLayout from "./pages/settings/SettingsLayout.jsx";
 import SearchProfile from "./pages/settings/SearchProfile.jsx";
+import FeedPreferences from "./pages/settings/FeedPreferences.jsx";
+import KeywordsPage from "./pages/settings/KeywordsPage.jsx";
 
 /* The pages are migrated one at a time. Anything not yet ported still runs
    in the original single-page app, served unchanged from public/legacy.html.
@@ -38,6 +40,8 @@ export default function App() {
                 <Route path="/settings" element={<SettingsLayout />}>
                     <Route index element={<Navigate to="profile" replace />} />
                     <Route path="profile" element={<SearchProfile />} />
+                    <Route path="feed" element={<FeedPreferences />} />
+                    <Route path="feed/keywords" element={<KeywordsPage />} />
                 </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

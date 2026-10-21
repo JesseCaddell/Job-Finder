@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { LockKeyhole, UserRound } from "lucide-react";
+import { LockKeyhole, SlidersHorizontal, UserRound } from "lucide-react";
 import "./settings.css";
 
 /* Sections shown in the sidebar. Each later settings page adds itself here. */
 const SECTIONS = [
-    { to: "/settings/profile", label: "Search profile & resumes", icon: UserRound }
+    { to: "/settings/profile", label: "Search profile & resumes", icon: UserRound },
+    { to: "/settings/feed", label: "Feed preferences", icon: SlidersHorizontal }
 ];
 
 export default function SettingsLayout() {
