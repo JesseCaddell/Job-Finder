@@ -1,6 +1,6 @@
 import { feedConfigured } from "./config.js";
 import { loadSettings, upsertJob } from "./data.js";
-import { DEFAULT_LOCATION_KEYWORDS, DEFAULT_TITLE_KEYWORDS } from "./defaults.js";
+import { DEFAULT_LOCATION_KEYWORDS, DEFAULT_LOW_SCORE_THRESHOLD, DEFAULT_TITLE_KEYWORDS } from "./defaults.js";
 import { newId } from "./format.js";
 import { isProtectedStatus } from "./stages.js";
 import { classifyTrack } from "./tracks.js";
@@ -42,6 +42,8 @@ export async function pullFeed(jobs) {
     const titleKeywords    = settings.title_keywords?.length    ? settings.title_keywords    : DEFAULT_TITLE_KEYWORDS;
     const locationKeywords = settings.location_keywords?.length ? settings.location_keywords : DEFAULT_LOCATION_KEYWORDS;
 
+    const lowScoreThreshold = settings.low_score_threshold ?? DEFAULT_LOW_SCORE_THRESHOLD;
+
     const failed = []; let truncated = 0;
     const results = await Promise.all(FEED_GROUPS.map(g =>
         fetchFeedGroup(g, { titleKeywords, locationKeywords })
@@ -63,19 +65,16 @@ export async function pullFeed(jobs) {
             // listing shouldn't wipe your tracked progress.
             const newPosted = it.postedAt ? new Date(it.postedAt).getTime() : null;
             const oldPosted = existing.postedAt ? new Date(existing.postedAt).getTime() : null;
-            if (newPosted && oldPosted && newPosted > oldPosted && !isProtectedStatus(existing)) {
+            // An archived job that scored under the low-score threshold stays archived.
+            const lowArchived = existing.archived && existing.fit != null && existing.fit < lowScoreThreshold;
+            if (newPosted && oldPosted && newPosted > oldPosted && !isProtectedStatus(existing) && !lowArchived) {
+                // The score is kept: a repost is the same listing (often just an
+                // edited one, e.g. Greenhouse updated_at), so rescoring it would
+                // spend an AI call on a job that was already scored.
                 const history = [...(existing.history || [])];
-                if (existing.fit != null) {
-                    history.push({
-                        type: "score", t: Date.now(), by: "Auto feed",
-                        fit: existing.fit, why: existing.why, feedback: existing.feedback,
-                        resumeId: existing.resumeId, resumeFilename: existing.resumeFilename, scoredAt: existing.scoredAt
-                    });
-                }
                 history.push({ s: "new", t: Date.now(), by: "Auto feed" });
                 const updated = {
-                    ...existing, postedAt: it.postedAt, archived: false, status: "new",
-                    fit: null, why: "", feedback: null, improvements: null, history
+                    ...existing, postedAt: it.postedAt, archived: false, status: "new", history
                 };
                 await upsertJob(updated);
                 next = next.map(j => j.id === updated.id ? updated : j);
