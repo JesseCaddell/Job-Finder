@@ -15,7 +15,7 @@
 .stage-label { font-size: 13px; font-weight: 500; color: var(--ink-soft); }
 /* The selected stage uses the same orange highlight as the active nav item and
    settings link. */
-.stage-tab.active { background: var(--accent-tint); border-color: var(--accent-tint); }
+.stage-tab.active { background: var(--accent-tint); border-color: var(--accent); }
 .stage-tab.active .stage-count, .stage-tab.active .stage-label { color: var(--accent-ink); }
 
 /* ---- layout ---- */
