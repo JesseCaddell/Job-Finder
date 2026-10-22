@@ -1,5 +1,11 @@
 .shell { min-height: 100vh; background: var(--bg); }
 
+/* Pages sit in a centered column, as in the first version of the app, instead
+   of stretching across wide screens. The nav's contents line up with it. */
+:root { --page-width: 1200px; }
+.page-centered { width: 100%; max-width: var(--page-width); margin: 0 auto; }
+.shell:has(.page-centered) .nav { padding-inline: max(48px, calc((100% - var(--page-width)) / 2 + 48px)); }
+
 .nav {
     display: flex; align-items: center; gap: 58px; height: 80px; padding: 0 48px;
     background: var(--surface); border-bottom: 1px solid var(--line);
