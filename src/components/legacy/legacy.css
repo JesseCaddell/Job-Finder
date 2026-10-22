@@ -1,0 +1,60 @@
+/* The Add/Edit job and Details dialogs keep their original look: they have no
+   Figma design yet. These rules are the legacy app's modal styles under an
+   `lg-` prefix so they cannot affect (or be affected by) the new design's
+   classes. Replace them when those dialogs are designed. */
+.lg-scrim {
+    --card: #FFFFFF; --ink: #1C2230; --ink-soft: #5A6275; --ink-faint: #8A91A0;
+    --line: #E5E3DD; --line-soft: #EEEDE8;
+    --accent: #D6862B; --accent-press: #BC7019; --accent-tint: #FBF1E3;
+    --offer: #0F9D63; --denied: #BE6A6A;
+    position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px;
+    background: rgba(28,34,48,.42); backdrop-filter: blur(2px);
+    font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5; color: var(--ink);
+}
+.lg-scrim button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+.lg-scrim input, .lg-scrim select, .lg-scrim textarea { font-family: inherit; font-size: 14px; color: var(--ink); }
+.lg-scrim a { color: var(--accent-press); }
+.lg-serif { font-family: Fraunces, Georgia, serif; }
+.lg-modal { background: var(--card); border-radius: 18px; max-width: 520px; width: 100%; max-height: 88vh; overflow: auto; box-shadow: 0 30px 80px rgba(28,34,48,.3); }
+.lg-mhead { padding: 20px 24px 0; display: flex; align-items: center; }
+.lg-mhead .lg-serif { font-size: 21px; }
+.lg-mbody { padding: 18px 24px 24px; }
+.lg-x { margin-left: auto; font-size: 22px; color: var(--ink-faint); line-height: 1; padding: 2px 6px; border-radius: 6px; }
+.lg-x:hover { background: var(--line-soft); color: var(--ink); }
+.lg-mfoot { display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px; flex-wrap: wrap; }
+
+.lg-field { margin-bottom: 14px; }
+.lg-field label { display: block; font-size: 12.5px; font-weight: 550; color: var(--ink-soft); margin-bottom: 5px; }
+.lg-field input, .lg-field textarea, .lg-field select { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; outline: none; background: var(--card); }
+.lg-field input:focus, .lg-field textarea:focus { border-color: var(--accent); }
+.lg-field textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+.lg-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.lg-btn { height: 42px; padding: 0 16px; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 550; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; transition: .15s; white-space: nowrap; text-decoration: none; }
+.lg-btn:hover { background: var(--accent-press); }
+.lg-btn.ghost { background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+.lg-btn.ghost:hover { background: var(--line-soft); }
+.lg-btn.sm { height: 34px; padding: 0 12px; font-size: 13px; }
+.lg-btn:disabled { opacity: .45; cursor: not-allowed; }
+.lg-miniact { font-size: 12.5px; color: var(--ink-soft); padding: 6px 9px; border-radius: 8px; }
+.lg-miniact:hover { background: var(--line-soft); color: var(--ink); }
+
+.lg-meta { font-size: 13px; color: var(--ink-soft); display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.lg-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.lg-tag { font-size: 11.5px; padding: 3px 9px; border-radius: 6px; background: var(--accent-tint); color: var(--accent-press); font-weight: 500; }
+
+.lg-ai-panel { margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.lg-ai-head { display: flex; align-items: center; gap: 9px; padding: 11px 14px; background: var(--accent-tint); border-bottom: 1px solid var(--line); }
+.lg-ai-score { font-family: Fraunces, Georgia, serif; font-size: 28px; font-weight: 500; color: var(--ink); line-height: 1; }
+.lg-ai-score small { font-size: 12px; font-family: Inter, system-ui, sans-serif; color: var(--ink-faint); font-weight: 450; }
+.lg-ai-verdict { font-size: 14px; font-weight: 550; color: var(--ink); }
+.lg-ai-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.lg-ai-section { font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+.lg-ai-section b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; color: var(--ink-faint); margin-bottom: 3px; }
+
+.lg-label { font-size: 12.5px; font-weight: 550; color: var(--ink-soft); margin-bottom: 5px; }
+.lg-hist { display: flex; gap: 9px; font-size: 13px; color: var(--ink-soft); padding: 5px 0; }
+.lg-hist i { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex: none; }
+.lg-hist b { color: var(--ink); font-weight: 550; }
+
+@media (max-width: 680px) { .lg-row2 { grid-template-columns: 1fr; } }

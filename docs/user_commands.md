@@ -123,3 +123,32 @@ update settings set title_keywords = '[]' where id = 1;
 
 Then hard-refresh and open Settings → Feed options. The new chips should appear.
 This discards any hand-edited title keywords, so re-add custom ones afterward.
+
+## Sign-in redesign: invite, set-password and forgot-password links (migrate/02-login)
+
+The new sign-in pages receive Supabase's emailed links at `/accept-invite` and
+`/reset-password`. Supabase only redirects to URLs you have allowed, so do this
+once per environment (production and any deploy preview you test on):
+
+1. **Allow the redirect URLs.** Supabase dashboard → Authentication → URL
+   Configuration:
+   - **Site URL:** your production URL, e.g. `https://your-site.netlify.app`
+   - **Redirect URLs:** add `https://your-site.netlify.app/reset-password` and
+     `https://your-site.netlify.app/accept-invite` (and the same two paths for
+     `http://localhost:8888` if you test with `netlify dev`).
+
+2. **Point the invite email at the accept-invite page.** Authentication →
+   Email Templates → **Invite user**. Change the link so it lands on the new
+   page. Replace `{{ .ConfirmationURL }}` in the link with:
+
+```
+{{ .SiteURL }}/accept-invite?token_hash={{ .TokenHash }}&type=invite
+```
+
+   Leave the **Reset password** template as is: the app already passes
+   `/reset-password` as the redirect when it sends the email.
+
+3. **Check it.** Authentication → Users → Invite user (your own second email),
+   open the link, and confirm you land on "Choose a password to get started".
+   Then use "Forgot password?" on `/login` and confirm the reset link lands on
+   "Choose a new password".

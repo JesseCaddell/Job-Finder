@@ -1,0 +1,45 @@
+/* The Archive page reuses the board's layout classes (board.css); only what is
+   specific to archived jobs lives here. */
+.archive { gap: 28px; padding-bottom: 48px; }
+.input-suffix { flex: none; font-size: 13px; color: var(--ink-soft); }
+
+/* ---- bulk selection toolbar ---- */
+.bulk-bar {
+    display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--ink); color: #fff;
+    border-radius: var(--radius);
+}
+.bulk-bar strong { font-size: 13px; font-weight: 600; }
+.bulk-bar .check-box { background: transparent; border-color: #fff; }
+
+/* ---- archived job card ---- */
+.archived-card { display: flex; flex-direction: column; gap: 20px; padding: 26px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.archived-card.selected { border-color: #b9c1ca; }
+.archived-header { display: flex; align-items: flex-start; gap: 16px; }
+.archived-header .check { padding-top: 6px; }
+.archived-identity { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.archived-identity h3 { font-size: 22px; font-weight: 600; line-height: 1.5; color: var(--ink); }
+.archived-identity h3 a { color: inherit; text-decoration: none; }
+.archived-identity h3 a:hover { text-decoration: underline; }
+.archived-company { font-size: 13px; color: var(--ink); }
+.archived-loc { font-size: 12px; color: var(--ink-soft); }
+.archived-fit { flex: none; display: flex; flex-direction: column; align-items: flex-end; }
+.archived-fit .serif { font-size: 32px; line-height: 1.5; color: var(--ink); }
+.archived-fit small { font-size: 11px; color: var(--ink-soft); }
+.archived-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.why-score { display: flex; flex-direction: column; gap: 7px; padding: 16px; background: var(--bg); border-radius: var(--radius-sm); }
+.why-heading { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ink); }
+.why-score p:last-child { font-size: 13px; color: var(--ink-soft); }
+.archived-meta { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--ink-soft); }
+.archived-card hr { width: 100%; height: 1px; margin: 0; border: none; background: var(--line); }
+.archived-actions { display: flex; align-items: center; gap: 10px; }
+.archived-actions .job-link { font-size: 12px; }
+
+.result-summary { display: flex; align-items: flex-start; justify-content: space-between; font-size: 12px; color: var(--ink-soft); }
+
+/* ---- cleanup column ---- */
+.archive-side { flex: none; width: 288px; display: flex; flex-direction: column; gap: 20px; }
+.cleanup hr { width: 100%; height: 1px; margin: 0; border: none; background: var(--line); }
+.cleanup-note { font-size: 11px; color: var(--ink-soft); }
+.permanent { display: flex; flex-direction: column; gap: 12px; padding: 20px; background: var(--red-tint); border-radius: var(--radius-lg); color: var(--red); }
+.permanent strong { font-size: 13px; font-weight: 600; }
+.permanent p { font-size: 12px; }

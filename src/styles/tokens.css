@@ -1,0 +1,32 @@
+/* Design tokens from the Figma redesign (Job Finder file). */
+:root {
+    --bg: #f6f4ef;
+    --surface: #ffffff;
+    --surface-warm: #eeeae1;
+    --ink: #202b3c;
+    --ink-soft: #707780;
+    --line: #e2e1dc;
+    --line-strong: #c5c8cb;
+    --chip: #eeece6;
+
+    --accent: #c8751b;
+    --accent-ink: #945114;
+    --accent-tint: #fcf0dd;
+
+    --blue: #426b93;
+    --blue-tint: #ecf1f7;
+    --purple: #786498;
+    --purple-tint: #f1edf6;
+    --green: #39735c;
+    --green-tint: #eaf3ed;
+    --red: #a34e47;
+    --red-tint: #faeeeb;
+    --red-line: #e5c7c2;
+
+    --font-serif: "Lora", Georgia, serif;
+    --font-sans: "Inter", system-ui, sans-serif;
+
+    --radius-sm: 6px;
+    --radius: 8px;
+    --radius-lg: 12px;
+}
