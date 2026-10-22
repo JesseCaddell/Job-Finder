@@ -48,6 +48,12 @@ export default function JobCard({ job: j, selected, onSelect, lowScoreThreshold,
                 )}
             </div>
 
+            {j.tags?.length > 0 && (
+                <div className="job-tags">
+                    {j.tags.map(t => <span className="tag tag-accent" key={t}>{t}</span>)}
+                </div>
+            )}
+
             {review && (
                 <div className="fit-note warn">
                     <CircleAlert size={15} />

@@ -60,6 +60,7 @@
 .fit-score .serif { font-size: 30px; line-height: 1.5; color: var(--ink); }
 .fit-score small { margin-left: 3px; font-size: 12px; color: var(--ink-soft); }
 .fit-label { font-size: 10px; font-weight: 600; color: var(--ink-soft); }
+.job-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .fit-note { display: flex; align-items: flex-start; gap: 9px; padding: 12px; background: var(--bg); border-radius: var(--radius-sm); font-size: 12px; color: var(--ink-soft); }
 .fit-note svg { flex: none; margin-top: 2px; }
 .fit-note.warn { background: var(--accent-tint); color: var(--accent-ink); }
