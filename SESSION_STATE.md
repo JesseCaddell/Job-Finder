@@ -1,39 +1,53 @@
 # Session State
 
-Last updated: 2026-10-10. Latest commit on `master`: `e38ba03`.
+Last updated: 2026-10-22. Latest commit on `master`: `da53eed` (PR #12 merged).
 
-## Done this session
+## Done this session: Figma redesign, migrated to Vite + React
 
-### Feed now returns developer roles
-- **Cause:** the saved `settings.title_keywords` (Supabase) overrides the defaults in `fetch-jobs.js`. The saved list was the old PM-only one, so the new developer titles never applied.
-- **Fix:** the title list was updated in **Feed options** (the link next to "Pull feed now" on the main board, not in Settings). Confirmed working.
-- USAJOBS and Adzuna previously searched only PM terms. They now run one search per term in `SEARCH_QUERIES` (top of the sources section in `fetch-jobs.js`).
-- README now documents Feed options, the override behavior, and where each kind of data lives.
+The single-file `index.html` app was replaced by a Vite 5 + React 18 + React Router app (plain JS), built page by page from the Figma file `5jZcNS6G9q8midRJa0I3Q0`. Six stacked PRs, all merged (#7 to #12):
 
-### PM vs Dev resume tracks
-- Each job has a `track`: `pm`, `dev` or `unsure`. The feed tags it from the title (`classifyTrack` in `fetch-jobs.js`, mirrored in `index.html`). Manual adds are tagged on save. Titles matching neither keyword list default to PM.
-- Scoring uses the newest resume uploaded for the job's track.
-  - `unsure` titles use whichever resume shares more keywords with the posting (ties go to PM), and the job then records the winner.
-  - A missing track falls back to the other resume, with a toast saying so.
-- Settings → Resume has an "Upload as PM/Dev" dropdown and a list of uploads where each can be re-tagged.
-- Cards show a PM/Dev badge; clicking it switches the track.
-- "Draft improvements" works on the resume that scored the job.
-- Untagged existing jobs are tagged once, automatically, on first load (`backfillTracks`).
-- Works in local mode too (resume versions are stored without a file path).
+| PR | Contents |
+|---|---|
+| #7 | Vite + React scaffold, data layer as modules in `src/lib/` |
+| #8 | Sign-in, forgot password, set password, accept invite; "Stay signed in" fix |
+| #9 | App shell, Settings: Search profile & resumes |
+| #10 | Settings: Feed preferences and the full allowlist page |
+| #11 | Board page |
+| #12 | Archive, React local-mode sign-in, `legacy.html` removed |
 
-## Still open / waiting
+Follow-up tweaks after review (also merged):
+- Board, Archive and Settings sit in a centered 1200px column (`.page-centered` in `src/components/shell.css`).
+- The selected stage on the Board uses the orange highlight (`--accent-tint` fill, `--accent` border), matching the active nav and Settings links.
+- The "More filters" button and its top-12 tag popover are gone. A job's own tags show on the Board and Archive cards (orange, like the Details dialog) and in Details (PRs #17, #18).
+- Fit scores are colored by strength (green 75+, orange 50-74, muted below), and the selected stage tab has dark text on the orange fill (PR #15).
+- A trial of the old Fraunces font on the Board was reverted; the app stays on Lora.
+- Archive search placeholder, "Date added", Restore to New, and delete-archived-only behave as decided with the user.
+- `CLAUDE.md` was updated for the new stack (the file is local and untracked on purpose).
 
-- **Needs more real data to judge.** The classifier and the `unsure` keyword-overlap pick haven't been tested on a real batch of postings. After more jobs come in, check:
-  - titles tagged the wrong way (fix by adding words to `DEV_TITLE_RE` / `PM_TITLE_RE`, in both `fetch-jobs.js` and `index.html`);
-  - how often `unsure` happens, and whether the resume it picks makes sense.
-- **Database column.** `alter table jobs add column if not exists track text;` must be run in Supabase. It was flagged but not confirmed as run. Without it, saving jobs fails.
-- **Earlier resume uploads are untagged.** Tag each one PM or Dev in Settings → Resume. Until then, scoring falls back to the most recently uploaded resume for every job.
-- **Not run end to end.** The code was syntax-checked and the title classifier was tried on sample titles. The upload flow, scoring with each resume, the badge switch and the automatic tagging have not been exercised in the live app.
+Verified: local mode end to end (headless Edge and Chrome), the Board, Archive and Settings against real Supabase data, and in-app password reset (worked).
 
-## Known limits and ideas
+Not verified: Pull feed and scoring through the Netlify functions, realtime between two sessions, resume upload to Storage, and the invite email. These code paths were ported unchanged.
 
-- Classification uses the title only. The description is not used to break ties, except in the `unsure` keyword-overlap pick.
-- The experience filter (`MAX_YEARS_EXPERIENCE = 6` in `fetch-jobs.js`) drops postings asking for more than 6 years. This may remove many developer roles.
-- Location keywords default to Washington, New York and California plus unrestricted remote. State-scoped remote postings like "Remote - Texas" are dropped.
-- The feed only covers companies listed in the Netlify env vars `GREENHOUSE_BOARDS`, `LEVER_COMPANIES` and `ASHBY_COMPANIES`. Adding more engineering-heavy companies is the main way to get more developer postings.
-- Possible later additions: a third track (for example data roles), and a way to preview the keyword-overlap pick.
+## Post-MVP to-do (in the order to take them)
+
+1. **Board sharing and invites.** Settings: Board sharing page (Figma frame `5:8271`). One primary user, everyone else a guest. Needs a Netlify function that invites by email with the Supabase service key, new SQL for roles (put it in `docs/user_commands.md`), the Invite email template change (also in `docs/user_commands.md`), and the "Shared board" chip.
+2. **Account menu.** Account management behind the avatar dropdown (it only has Sign out today). Needs a design first.
+3. **Local-mode redesign.** New local login and local settings variants. Local "Clear all data" stays local-only.
+4. **Designs for the undesigned screens.** Add/Edit job, Details, and confirm dialogs (all keep the old look via `lg-` CSS in `src/components/legacy/`), plus forgot password, set password, accept invite and local sign-in.
+5. **Mobile layouts.** No mock exists yet; none of the pages are tuned below desktop width.
+
+## Still open
+
+- **Job posting quality and scoring** (user's top priority, in the untracked `docs/fix_list.md`): descriptions look cut off or arrive as escaped HTML, so the AI says the posting is incomplete and scores unreliably. Check what `fetch-jobs.js` stores in `notes`.
+- **Database column.** `alter table jobs add column if not exists track text;` was flagged earlier but never confirmed as run in Supabase.
+- **Earlier resume uploads may be untagged.** Tag each PM or Dev in Settings, then Search profile & resumes.
+- **Unconfirmed choices I made** (change if you disagree): keyword groups are derived from the PM/Dev word lists; "Needs review" means an unscored job with an empty description; Feed preferences autosaves with no Save button; the Board's checkboxes select jobs but have no bulk action; Archive sort says "Newest added" (no archived-date column, and none is wanted for now).
+- **Supabase dashboard steps** for the invite flow are in `docs/user_commands.md`. Only the reset-password redirect URL has been confirmed in use.
+
+## Notes for the next session
+
+- Run locally: `npm run dev` (netlify dev, uses the linked site `jobfinderpipeline`) for shared mode with the functions; `npm run dev:vite` for local mode only. `netlify link` state is git-ignored in `.netlify/`.
+- Figma MCP needs the account `jcaddell.tech@gmail.com`; the other account is view-only.
+- Where things live: pages in `src/pages/`, data and logic in `src/lib/`, jobs state in `src/context/JobsContext.jsx`, functions in `netlify/functions/`.
+- Classification of PM vs Dev tracks is in `src/lib/tracks.js` and mirrored in `netlify/functions/fetch-jobs.js`; keep the two word lists in sync.
+- Known limits: `MAX_YEARS_EXPERIENCE = 6` in `fetch-jobs.js` drops postings asking for more than 6 years; state-scoped Remote postings outside your locations are dropped; the feed only covers companies in the Netlify env vars `GREENHOUSE_BOARDS`, `LEVER_COMPANIES` and `ASHBY_COMPANIES`.
