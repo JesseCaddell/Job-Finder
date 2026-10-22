@@ -1,6 +1,6 @@
 import { ArrowUpRight, ChevronDown, CircleAlert, Sparkles } from "lucide-react";
 import Checkbox from "../../components/Checkbox.jsx";
-import { timeAgoLong } from "../../lib/format.js";
+import { fitColor, timeAgoLong } from "../../lib/format.js";
 import { needsReview } from "../../lib/jobsView.js";
 import { attemptCount, STAGES } from "../../lib/stages.js";
 import { classifyTrack, TRACK_LABEL } from "../../lib/tracks.js";
@@ -36,7 +36,7 @@ export default function JobCard({ job: j, selected, onSelect, lowScoreThreshold,
                 </div>
                 {j.fit != null ? (
                     <div className="fit-score">
-                        <div><span className="serif">{j.fit}</span><small>/100</small></div>
+                        <div><span className="serif" style={{ color: fitColor(j.fit) }}>{j.fit}</span><small>/100</small></div>
                         <span className="fit-label">FIT SCORE</span>
                     </div>
                 ) : review ? (
