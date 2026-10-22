@@ -50,7 +50,7 @@ export default function JobCard({ job: j, selected, onSelect, lowScoreThreshold,
 
             {j.tags?.length > 0 && (
                 <div className="job-tags">
-                    {j.tags.map(t => <span className="tag tag-neutral" key={t}>{t}</span>)}
+                    {j.tags.map(t => <span className="tag tag-accent" key={t}>{t}</span>)}
                 </div>
             )}
 
