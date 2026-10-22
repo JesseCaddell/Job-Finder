@@ -22,6 +22,10 @@ export function timeAgoLong(t) {
     return unit(Math.round(d / 86400), "day");
 }
 
+// Fit score colors from the first version: green for strong matches (75+),
+// orange for worth-a-look (50+), muted below that.
+export const fitColor = fit => fit >= 75 ? "var(--green)" : fit >= 50 ? "var(--accent)" : "var(--ink-soft)";
+
 export function newId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }

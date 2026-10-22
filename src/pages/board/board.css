@@ -13,10 +13,10 @@
 .stage-marker { flex: none; width: 3px; height: 32px; border-radius: 2px; }
 .stage-count { font-size: 29px; line-height: 1.5; color: var(--ink); }
 .stage-label { font-size: 13px; font-weight: 500; color: var(--ink-soft); }
-/* The selected stage uses the same orange highlight as the active nav item and
-   settings link. */
+/* The selected stage uses the orange fill and border; text stays dark so it
+   reads on the orange. */
 .stage-tab.active { background: var(--accent-tint); border-color: var(--accent); }
-.stage-tab.active .stage-count, .stage-tab.active .stage-label { color: var(--accent-ink); }
+.stage-tab.active .stage-count, .stage-tab.active .stage-label { color: var(--ink); }
 
 /* ---- layout ---- */
 .feed-workspace { display: flex; align-items: flex-start; gap: 24px; }

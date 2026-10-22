@@ -1,6 +1,7 @@
 import { ArrowUpRight, RotateCcw, Sparkles } from "lucide-react";
 import Checkbox from "../../components/Checkbox.jsx";
 import { classifyTrack, TRACK_LABEL } from "../../lib/tracks.js";
+import { fitColor } from "../../lib/format.js";
 
 const TRACK_TAG = { dev: "tag-blue", pm: "tag-purple", unsure: "tag-neutral" };
 
@@ -23,7 +24,7 @@ export default function ArchivedJobCard({ job: j, selected, onSelect, actions, o
                 </div>
                 {j.fit != null && (
                     <div className="archived-fit">
-                        <span className="serif">{j.fit}</span>
+                        <span className="serif" style={{ color: fitColor(j.fit) }}>{j.fit}</span>
                         <small>/100 FIT</small>
                     </div>
                 )}
