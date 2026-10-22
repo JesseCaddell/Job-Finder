@@ -68,7 +68,7 @@ export default function Board() {
             : "No roles match this filter.";
 
     return (
-        <div className="board board-centered">
+        <div className="board page-centered">
             <div className="board-heading">
                 <div className="page-heading">
                     <p className="eyebrow">YOUR NEXT CHAPTER</p>
