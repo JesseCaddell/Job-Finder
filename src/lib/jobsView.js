@@ -28,7 +28,7 @@ export const SORT_OPTIONS = [
     { value: "title", label: "Title A–Z" }
 ];
 
-// The most common tags across all jobs, for the "More filters" popover.
+// The most common tags across all jobs, for the Archive tag filter.
 export function topTags(jobs, n = 12) {
     const all = {};
     jobs.forEach(j => (j.tags || []).forEach(t => { const k = t.toLowerCase(); all[k] = (all[k] || 0) + 1; }));

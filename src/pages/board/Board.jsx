@@ -11,7 +11,6 @@ import AddEditJobModal from "./AddEditJobModal.jsx";
 import DetailsModal from "./DetailsModal.jsx";
 import FeedTools from "./FeedTools.jsx";
 import JobCard from "./JobCard.jsx";
-import MoreFilters from "./MoreFilters.jsx";
 import useJobActions from "./useJobActions.js";
 import "./board.css";
 
@@ -25,7 +24,7 @@ export default function Board() {
     const toast = useToast();
     const actions = useJobActions();
 
-    const [filter, setFilter] = useState({ stage: DEFAULT_STAGE, track: null, tag: null, q: "", sort: "added" });
+    const [filter, setFilter] = useState({ stage: DEFAULT_STAGE, track: null, q: "", sort: "added" });
     const [selected, setSelected] = useState(() => new Set());
     const [adding, setAdding] = useState(false);
     const [editing, setEditing] = useState(null);     // job being edited
@@ -64,7 +63,7 @@ export default function Board() {
     const stageLabel = filter.stage ? stageMeta(filter.stage).label.toLowerCase() + " " : "";
     const emptyMessage = !jobs.length
         ? "Paste a job link to get started — or pull the feed."
-        : filter.stage && !filter.track && !filter.tag && !filter.q
+        : filter.stage && !filter.track && !filter.q
             ? `No ${stageMeta(filter.stage).label} roles right now — pick another stage above to see others.`
             : "No roles match this filter.";
 
@@ -115,12 +114,11 @@ export default function Board() {
 
                     <div className="tag-filters">
                         <button
-                            type="button" className={"btn btn-outline btn-sm" + (!filter.track && !filter.tag ? " on" : "")}
-                            onClick={() => patch({ track: null, tag: null })}
+                            type="button" className={"btn btn-outline btn-sm" + (!filter.track ? " on" : "")}
+                            onClick={() => patch({ track: null })}
                         >All tags</button>
                         <button type="button" className={"tag tag-blue filter-tag" + (filter.track === "dev" ? " on" : "")} onClick={() => patch({ track: filter.track === "dev" ? null : "dev" })}>DEV</button>
                         <button type="button" className={"tag tag-purple filter-tag" + (filter.track === "pm" ? " on" : "")} onClick={() => patch({ track: filter.track === "pm" ? null : "pm" })}>PM</button>
-                        <MoreFilters jobs={jobs} tag={filter.tag} onTag={tag => patch({ tag })} />
                         <span className="spacer" />
                         <span className="job-count">{list.length} {stageLabel}job{list.length === 1 ? "" : "s"}</span>
                     </div>
