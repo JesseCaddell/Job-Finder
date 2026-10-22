@@ -9,7 +9,7 @@ const SECTIONS = [
 
 export default function SettingsLayout() {
     return (
-        <div className="settings">
+        <div className="settings page-centered">
             <aside className="settings-nav">
                 <div className="settings-nav-heading">
                     <h2 className="serif">Settings</h2>
