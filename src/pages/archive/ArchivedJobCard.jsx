@@ -32,7 +32,7 @@ export default function ArchivedJobCard({ job: j, selected, onSelect, actions, o
 
             <div className="archived-tags">
                 <span className={"tag " + TRACK_TAG[track]}>{TRACK_LABEL[track].toUpperCase()}</span>
-                {(j.tags || []).map(t => <span className="tag tag-neutral" key={t}>{t}</span>)}
+                {(j.tags || []).map(t => <span className="tag tag-accent" key={t}>{t}</span>)}
             </div>
 
             {note && (
