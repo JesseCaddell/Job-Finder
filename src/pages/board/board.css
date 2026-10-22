@@ -1,3 +1,7 @@
+/* The Board uses the first version's serif (Fraunces) for headings, stage counts
+   and scores; the rest of the app still uses the redesign's Lora. Archive shares
+   the .board class, so it is excluded until this is approved. */
+.board:not(.archive) { --font-serif: "Fraunces", Georgia, serif; }
 .board { display: flex; flex-direction: column; gap: 26px; padding: 32px 48px 36px; }
 .board-heading { display: flex; align-items: center; gap: 32px; }
 .board-heading .page-heading { flex: 1; min-width: 0; }
