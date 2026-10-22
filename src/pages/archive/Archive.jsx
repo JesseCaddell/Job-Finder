@@ -106,7 +106,7 @@ export default function Archive() {
     const count = archived.length;
 
     return (
-        <div className="board archive">
+        <div className="board archive page-centered">
             <div className="board-heading">
                 <div className="page-heading">
                     <p className="eyebrow">KEPT, NOT GONE</p>
