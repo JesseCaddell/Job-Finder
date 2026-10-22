@@ -18,7 +18,7 @@ The single-file `index.html` app was replaced by a Vite 5 + React 18 + React Rou
 Follow-up tweaks after review (also merged):
 - Board, Archive and Settings sit in a centered 1200px column (`.page-centered` in `src/components/shell.css`).
 - The selected stage on the Board uses the orange highlight (`--accent-tint` fill, `--accent` border), matching the active nav and Settings links.
-- The "More filters" button and its top-12 tag popover are gone. A job's own tags show on the Board cards (orange, like the Details dialog) and in Details.
+- The "More filters" button and its top-12 tag popover are gone. A job's own tags show on the Board and Archive cards (orange, like the Details dialog) and in Details (PRs #17, #18).
 - Fit scores are colored by strength (green 75+, orange 50-74, muted below), and the selected stage tab has dark text on the orange fill (PR #15).
 - A trial of the old Fraunces font on the Board was reverted; the app stays on Lora.
 - Archive search placeholder, "Date added", Restore to New, and delete-archived-only behave as decided with the user.
